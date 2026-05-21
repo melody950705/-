@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}司機登入 - 台中等公車 2.0{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center py-5" style="min-height: 70vh;">
+    <div class="col-md-5">
+        <!-- Glassmorphism Login Card -->
+        <div class="glass-card p-5">
+            <div class="text-center mb-4">
+                <div class="bg-indigo bg-opacity-10 p-3 rounded-circle d-inline-block text-gradient mb-3">
+                    <i class="fas fa-id-card fa-3x"></i>
+                </div>
+                <h2 class="text-white fw-bold">司機登入系統</h2>
+                <p class="text-muted mb-0">台中市公車聯營路況回報平台</p>
+            </div>
+            
+            <form action="{{ url_for('driver.login_submit') }}" method="POST">
+                <div class="mb-3">
+                    <label for="username" class="form-label text-white fw-bold">員工帳號</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-user"></i></span>
+                        <input type="text" id="username" name="username" class="form-control glass-input" placeholder="請輸入帳號" required autocomplete="username">
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="password" class="form-label text-white fw-bold">登入密碼</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-lock"></i></span>
+                        <input type="password" id="password" name="password" class="form-control glass-input" placeholder="請輸入密碼" required autocomplete="current-password">
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-gradient w-100 py-3 mb-3">
+                    <i class="fas fa-sign-in-alt me-2"></i>登入
+                </button>
+            </form>
+            
+            <!-- Dev Helper Note -->
+            <div class="glass-card p-3 border-warning border-opacity-20 bg-warning bg-opacity-5 mt-4">
+                <div class="d-flex align-items-center gap-2 mb-1 text-warning">
+                    <i class="fas fa-flask"></i>
+                    <span class="fw-bold small">開發者測試提示</span>
+                </div>
+                <p class="mb-0 text-secondary-color small">若資料庫無資料，您可使用測試帳號登入：</p>
+                <div class="text-white small font-monospace mt-1">帳號：admin / 密碼：admin</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
