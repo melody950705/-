@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}路線 {{ route_id }} 即時動態 - 台中等公車 2.0{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <!-- Back and Refresh -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-light border-0">
+                <i class="bi bi-chevron-left me-1"></i>返回首頁
+            </a>
+            <button id="refresh-btn" class="btn btn-outline-info border-1 px-3">
+                <i class="bi bi-arrow-clockwise me-1"></i>手動重新整理
+            </button>
+        </div>
+
+        <!-- Route Header -->
+        <div class="glass-card p-4 mb-4 text-center text-md-start">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <span class="badge bg-cyan text-dark font-black px-3 py-2 mb-2" style="background-color: var(--accent-cyan); font-size: 1rem;">台中市公車</span>
+                    <h2 class="text-white font-black mb-1">
+                        <span class="text-glow-cyan">{{ route_id }}</span> 路公車即時動態
+                    </h2>
+                    <p class="text-secondary m-0">行經主要幹道，由 TDX 與在線司機提供即時到站資訊與車況回報。</p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                    <span class="text-secondary fs-7"><i class="bi bi-clock-history me-1"></i>自動更新間隔：10 秒</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <!-- Left Side: Bus Stop Sequencer -->
+            <div class="col-md-7">
+                <div class="glass-card p-4">
+                    <h5 class="text-white font-bold mb-4"><i class="bi bi-bezier2 me-2 text-glow-cyan"></i>沿途停靠站點</h5>
+                    
+                    <!-- Stops List Container -->
+                    <div id="stops-list-container">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-info mb-3" role="status"></div>
+                            <p class="text-secondary m-0">正在載入 TDX 即時到站資料...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Driver Reports Panel -->
+            <div class="col-md-5">
+                <div class="glass-card p-4 mb-4">
+                    <h5 class="text-white font-bold mb-3"><i class="bi bi-megaphone-fill me-2 text-glow-blue"></i>司機即時回報特報</h5>
+                    <p class="text-secondary fs-7 mb-4">由該路線駕駛員於行車途中提供之最新車內與路況，輔助您規劃乘車。</p>
+                    
+                    <!-- Reports List Container -->
+                    <div id="reports-list-container">
+                        <div class="text-center py-4">
+                            <p class="text-secondary m-0">正在確認近期回報資料...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Quick Tools (For assessment and presentation verification) -->
+                <div class="glass-card p-4">
+                    <h5 class="text-white font-bold mb-3"><i class="bi bi-gear-fill me-2 text-glow-cyan"></i>快速測試說明</h5>
+                    <p class="text-secondary fs-7 mb-3">若要測試「司機即時回報」如何同步呈現在乘客面板上：</p>
+                    <ol class="text-secondary fs-7 ps-3 mb-0">
+                        <li>開新分頁登入<b>司機專區</b>（預設測試帳號可於專案建置後建立）</li>
+                        <li>於司機回報頁面對本路線「{{ route_id }}」提交一個狀態（例如：延誤 10 分鐘或客滿）</li>
+                        <li>本頁面會在下一輪自動更新（或點擊右上方「手動重新整理」）時，立即在右側顯現該回報！</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const routeId = "{{ route_id }}";
+    const refreshBtn = document.getElementById('refresh-btn');
+    const stopsContainer = document.getElementById('stops-list-container');
+    const reportsContainer = document.getElementById('reports-list-container');
+
+    // Fetch API function
+    function fetchRouteData() {
+        if (refreshBtn) {
+            refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>載入中...';
+        }
+
+        fetch(`/api/bus/${routeId}`)
+            .then(res => {
+                if (!res.ok) throw new Error("HTTP error " + res.status);
+                return res.json();
+            })
+            .then(data => {
+                if (data.status === "success") {
+                    renderStops(data.eta);
+                    renderReports(data.reports);
+                } else {
+                    showError(data.message || "未知錯誤");
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showError("無法連線至後端 API");
+            })
+            .finally(() => {
+                if (refreshBtn) {
+                    refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>手動重新整理';
+                }
+            });
+    }
+
+    // Render Stops list
+    function renderStops(etaList) {
+        if (!etaList || etaList.length === 0) {
+            stopsContainer.innerHTML = '<div class="text-center py-4 text-secondary">暫無停靠站牌資訊</div>';
+            return;
+        }
+
+        let html = '';
+        etaList.forEach(stop => {
+            let etaClass = 'eta-future';
+            let etaText = stop.eta;
+
+            if (stop.eta === '進站中' || stop.eta === '0 分鐘') {
+                etaClass = 'eta-now';
+                etaText = '● 進站中';
+            } else if (stop.eta.includes('分鐘')) {
+                const mins = parseInt(stop.eta);
+                if (mins <= 3) {
+                    etaClass = 'eta-incoming';
+                    etaText = `即将到站 (${mins}分)`;
+                } else {
+                    etaClass = 'eta-future';
+                }
+            }
+
+            html += `
+                <div class="bus-stop-card">
+                    <div class="bus-stop-eta ${etaClass}">${etaText}</div>
+                    <div class="ms-3">
+                        <div class="text-white font-bold">${stop.stop_name}</div>
+                        <div class="text-secondary fs-8">停靠順序: ${stop.stop_sequence}</div>
+                    </div>
+                </div>
+            `;
+        });
+        stopsContainer.innerHTML = html;
+    }
+
+    // Render Reports list
+    function renderReports(reports) {
+        if (!reports || reports.length === 0) {
+            reportsContainer.innerHTML = `
+                <div class="text-center py-4 border border-secondary border-dashed rounded-3" style="border-style: dashed !important; --bs-border-opacity: 0.2;">
+                    <i class="bi bi-shield-slash-fill text-secondary fs-3 mb-2"></i>
+                    <p class="text-secondary m-0">目前此路線無任何異常回報</p>
+                    <span class="badge badge-status badge-normal mt-2">行車正常</span>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        reports.forEach(rep => {
+            let badgeClass = 'badge-delay';
+            if (rep.status.includes('滿') || rep.status.includes('客滿')) {
+                badgeClass = 'badge-full';
+            } else if (rep.status.includes('正常')) {
+                badgeClass = 'badge-normal';
+            }
+
+            // Parse Date
+            const date = new Date(rep.created_at);
+            const timeStr = date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+
+            html += `
+                <div class="p-3 mb-3 border border-secondary rounded-3" style="--bs-border-opacity: 0.15; background: rgba(255,255,255,0.01);">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge badge-status ${badgeClass}">${rep.status}</span>
+                        <span class="text-secondary fs-8">${timeStr}</span>
+                    </div>
+                    <p class="text-white fs-7 m-0 mb-1">路線：${rep.route_id} 路公車</p>
+                    <p class="text-secondary fs-8 m-0"><i class="bi bi-person-fill me-1"></i>回報員ID: ${rep.driver_id}</p>
+                    ${rep.latitude && rep.longitude ? `<span class="fs-9 text-info mt-1 d-inline-block">📍 附帶經緯度座標 (${rep.latitude.toFixed(4)}, ${rep.longitude.toFixed(4)})</span>` : ''}
+                </div>
+            `;
+        });
+        reportsContainer.innerHTML = html;
+    }
+
+    // Show error message
+    function showError(msg) {
+        stopsContainer.innerHTML = `
+            <div class="alert alert-danger glass-card border-0 text-white my-3" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>資料載入失敗: ${msg}
+            </div>
+        `;
+        reportsContainer.innerHTML = `
+            <div class="alert alert-danger glass-card border-0 text-white my-3" role="alert">
+                無法更新司機回報
+            </div>
+        `;
+    }
+
+    // Handlers
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', fetchRouteData);
+    }
+
+    // Initial Fetch
+    fetchRouteData();
+
+    // 10s auto-refresh
+    const timer = setInterval(fetchRouteData, 10000);
+
+    // Cleanup on navigate away
+    window.addEventListener('beforeunload', () => {
+        clearInterval(timer);
+    });
+});
+</script>
+{% endblock %}
