@@ -58,11 +58,9 @@ def get_mock_bus_data(route_id):
         stops = [f"模擬站牌 {i}" for i in range(1, 11)]
         
     mock_data = []
+    # 去程 (Direction 0)
     for i, stop in enumerate(stops):
-        # 模擬預估到站秒數。i=0 代表已過站或起點，其餘時間遞增
         estimate_time = random.randint(30, 1800) if i > 0 else None
-        
-        # 狀態：0: 正常, 1: 尚未起飛, 2: 交管, 3: 故障, 4: 停駛
         stop_status = 0
         if estimate_time is None:
             stop_status = 1  # 尚未起飛
@@ -73,6 +71,22 @@ def get_mock_bus_data(route_id):
             'StopStatus': stop_status,
             'StopSequence': i + 1,
             'Direction': 0
+        })
+        
+    # 返程 (Direction 1)
+    reversed_stops = list(reversed(stops))
+    for i, stop in enumerate(reversed_stops):
+        estimate_time = random.randint(30, 1800) if i > 0 else None
+        stop_status = 0
+        if estimate_time is None:
+            stop_status = 1  # 尚未起飛
+            
+        mock_data.append({
+            'StopName': {'Zh_tw': stop},
+            'EstimateTime': estimate_time,
+            'StopStatus': stop_status,
+            'StopSequence': i + 1,
+            'Direction': 1
         })
     return mock_data
 
