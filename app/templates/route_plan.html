@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}轉乘規劃 - 台中等公車2.0{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5 mb-4">
+        <div class="glass-panel p-4">
+            <h4 class="fw-bold mb-4"><span class="gradient-text"><i class="fa-solid fa-map-location-dot me-2"></i> 規劃您的通勤路線</span></h4>
+            <form action="{{ url_for('main.route_plan') }}" method="GET">
+                <div class="mb-3">
+                    <label for="start-input" class="form-label text-secondary small">起點站牌/地標</label>
+                    <input type="text" name="start" id="start-input" class="form-control input-custom" placeholder="請輸入起點 (如：臺中車站)" value="{{ start }}" required>
+                </div>
+                <div class="mb-4">
+                    <label for="end-input" class="form-label text-secondary small">終點站牌/地標</label>
+                    <input type="text" name="end" id="end-input" class="form-control input-custom" placeholder="請輸入終點 (如：靜宜大學)" value="{{ end }}" required>
+                </div>
+                <button type="submit" class="btn btn-gradient w-100 py-3">
+                    <i class="fa-solid fa-compass me-2"></i> 開始計算最優路線
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-7">
+        <div class="glass-panel p-4 h-100">
+            <h4 class="fw-bold mb-4"><span class="gradient-text"><i class="fa-solid fa-signs-post me-2"></i> 推薦轉乘方案</span></h4>
+            
+            {% if plans %}
+                <div class="accordion accordion-dark" id="planAccordion">
+                    {% for plan in plans %}
+                        <div class="accordion-item bg-transparent border-secondary mb-3 glass-panel">
+                            <h2 class="accordion-header" id="heading-{{ loop.index }}">
+                                <button class="accordion-button bg-transparent text-light fw-bold {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}" aria-expanded="{% if loop.first %}true{% endif %}" aria-controls="collapse-{{ loop.index }}">
+                                    <div class="d-flex justify-content-between align-items-center w-100 pe-3">
+                                        <div>
+                                            <span class="badge bg-info me-2">{{ plan.method }}</span>
+                                            <span>{{ plan.route }}</span>
+                                        </div>
+                                        <span class="text-info">{{ plan.duration }}</span>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#planAccordion">
+                                <div class="accordion-body text-secondary">
+                                    <div class="d-flex justify-content-between mb-3 text-muted small">
+                                        <span>票價：<strong class="text-light">{{ plan.fare }}</strong></span>
+                                        <span>轉乘次數：<strong class="text-light">0 次</strong></span>
+                                    </div>
+                                    <ol class="list-group list-group-numbered list-group-flush bg-transparent">
+                                        {% for step in plan.steps %}
+                                            <li class="list-group-item bg-transparent text-light border-0 ps-0 mb-2">
+                                                {{ step }}
+                                            </li>
+                                        {% endfor %}
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fa-solid fa-route fs-1 text-secondary mb-3"></i>
+                    {% if start or end %}
+                        <p>找不到對應的轉乘路徑，請嘗試輸入更通俗的站名 (如：臺中車站、秋紅谷、東海大學)。</p>
+                    {% else %}
+                        <p>請於左側輸入起點與終點站名稱，系統將自動計算多個轉乘方案。</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

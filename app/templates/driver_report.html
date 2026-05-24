@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}司機回報主頁 - 台中等公車2.0{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Reporting Box -->
+    <div class="col-lg-6 mb-4">
+        <div class="glass-panel p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold mb-0"><span class="gradient-text"><i class="fa-solid fa-bullhorn me-2"></i> 送出即時路況回報</span></h4>
+                <span class="badge bg-success">已連線</span>
+            </div>
+            
+            <form action="{{ url_for('driver.report_submit') }}" method="POST" id="report-form">
+                <!-- Route selection -->
+                <div class="mb-4">
+                    <label class="form-label text-secondary small">1. 選擇行駛路線</label>
+                    <div class="row">
+                        {% for r_id in routes %}
+                        <div class="col-4">
+                            <input type="radio" class="btn-check" name="route_id" id="route-{{ r_id }}" value="{{ r_id }}" {% if loop.first %}checked{% endif %}>
+                            <label class="btn btn-outline-info w-100 py-3 fw-bold" for="route-{{ r_id }}">{{ r_id }} 路</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- GPS detection -->
+                <input type="hidden" name="latitude" id="lat-input">
+                <input type="hidden" name="longitude" id="lon-input">
+                <div class="mb-4">
+                    <label class="form-label text-secondary small">GPS 定位狀態</label>
+                    <div class="p-3 rounded border border-secondary d-flex align-items-center justify-content-between" style="background: rgba(255, 255, 255, 0.02)">
+                        <div id="gps-status" class="text-secondary small">
+                            <i class="fa-solid fa-location-crosshairs text-info me-2"></i> 正在獲取 GPS 經緯度...
+                        </div>
+                        <button type="button" onclick="getLocation()" class="btn btn-sm btn-outline-secondary">
+                            <i class="fa-solid fa-sync"></i> 重新定位
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Status select triggers submission -->
+                <input type="hidden" name="status" id="status-input">
+                <div class="mb-2">
+                    <label class="form-label text-secondary small">2. 點擊按鈕立即回報 (將自動送出)</label>
+                </div>
+                
+                <div class="d-flex flex-column gap-3">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <button type="button" onclick="submitStatus('延誤')" class="btn btn-lg btn-outline-warning w-100 py-4 fw-bold">
+                                <i class="fa-solid fa-clock fs-2 mb-2 d-block"></i> 班次延誤
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button type="button" onclick="submitStatus('滿載')" class="btn btn-lg btn-outline-danger w-100 py-4 fw-bold">
+                                <i class="fa-solid fa-users fs-2 mb-2 d-block"></i> 車內滿載
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button type="button" onclick="submitStatus('故障')" class="btn btn-lg btn-danger w-100 py-4 fw-bold">
+                                <i class="fa-solid fa-screwdriver-wrench fs-2 mb-2 d-block"></i> 車輛故障
+                            </button>
+                        </div>
+                        <div class="col-6">
+                            <button type="button" onclick="submitStatus('正常')" class="btn btn-lg btn-success w-100 py-4 fw-bold">
+                                <i class="fa-solid fa-circle-check fs-2 mb-2 d-block"></i> 正常行駛
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- History Panel -->
+    <div class="col-lg-6 mb-4">
+        <div class="glass-panel p-4 h-100">
+            <h4 class="fw-bold mb-4"><span class="gradient-text"><i class="fa-solid fa-clock-rotate-left me-2"></i> 您的歷史回報記錄</span></h4>
+            
+            <div style="max-height: 450px; overflow-y: auto;">
+                {% if reports %}
+                    <div class="list-group list-group-flush bg-transparent">
+                        {% for report in reports %}
+                            <div class="list-group-item bg-transparent text-light border-secondary px-0 py-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-secondary text-info fw-bold">{{ report.route_id }} 路</span>
+                                    <small class="text-muted">{{ report.created_at }}</small>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        狀態：
+                                        {% if report.status == "延誤" %}
+                                            <span class="badge bg-warning text-dark">{{ report.status }}</span>
+                                        {% elif report.status == "滿載" or report.status == "故障" %}
+                                            <span class="badge bg-danger">{{ report.status }}</span>
+                                        {% else %}
+                                            <span class="badge bg-success">{{ report.status }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if report.latitude and report.longitude %}
+                                        <small class="text-muted small">
+                                            <i class="fa-solid fa-location-dot text-info"></i> {{ "%.4f"|format(report.latitude) }}, {{ "%.4f"|format(report.longitude) }}
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-folder-open fs-2 mb-2"></i>
+                        <p class="mb-0">您尚未提交任何回報資訊。</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getLocation() {
+    const statusDiv = document.getElementById("gps-status");
+    const latInput = document.getElementById("lat-input");
+    const lonInput = document.getElementById("lon-input");
+    
+    if (navigator.geolocation) {
+        statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-info me-2"></i> 正在尋求 GPS 定位授權...';
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                latInput.value = lat;
+                lonInput.value = lon;
+                statusDiv.innerHTML = `<i class="fa-solid fa-check-circle text-success me-2"></i> 定位成功: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+            },
+            (error) => {
+                console.warn(error);
+                statusDiv.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-warning me-2"></i> GPS 定位失敗，將不附帶位置';
+            },
+            { timeout: 5000 }
+        );
+    } else {
+        statusDiv.innerHTML = '<i class="fa-solid fa-ban text-danger me-2"></i> 瀏覽器不支援 GPS 定位';
+    }
+}
+
+function submitStatus(status) {
+    document.getElementById("status-input").value = status;
+    document.getElementById("report-form").submit();
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    getLocation();
+});
+</script>
+{% endblock %}
