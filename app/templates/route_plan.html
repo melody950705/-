@@ -1,144 +1,107 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}路線與轉乘規劃 - 台中等公車 2.0{% endblock %}
+{% block title %}轉乘規劃 - 台中等公車 2.0{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-10">
-        <!-- Page Title -->
-        <div class="text-center mb-5">
-            <h2 class="fw-bold text-glow-cyan"><i class="bi bi-map-fill me-2"></i>路線與轉乘規劃</h2>
-            <p class="text-secondary">輸入您的起點與迄點，系統將為您推薦最優的乘車與轉乘方案。</p>
-        </div>
+<div class="row">
+    <div class="col-12 mb-4">
+        <a href="{{ url_for('main.index') }}" class="btn btn-glass">
+            <i class="fas fa-arrow-left me-2"></i>返回首頁
+        </a>
+    </div>
 
-        <!-- Search Form Glass Card -->
-        <div class="glass-card p-4 mb-5">
-            <form action="{{ url_for('main.route_plan') }}" method="GET" class="row align-items-center g-3">
-                <div class="col-md-5">
-                    <div class="form-floating">
-                        <input type="text" class="form-control bg-transparent text-white border-secondary" id="start-input" name="start" value="{{ start }}" placeholder="起點（如：台中車站）" required>
-                        <label for="start-input" class="text-secondary">起點（站名或地標）</label>
+    <!-- Left side: Route Query Form -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass-card p-4">
+            <h3 class="text-white fw-bold mb-4"><i class="fas fa-route text-gradient me-2"></i>路線規劃</h3>
+            
+            <form action="{{ url_for('main.route_plan') }}" method="GET">
+                <div class="mb-3">
+                    <label for="start" class="form-label text-white fw-bold">起點</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-map-marker-alt text-success"></i></span>
+                        <input type="text" id="start" name="start" value="{{ start or '' }}" class="form-control glass-input" placeholder="例如：台中車站、逢甲大學..." required>
                     </div>
                 </div>
                 
-                <!-- Swap Button -->
-                <div class="col-md-1 text-center my-2 my-md-0">
-                    <button type="button" id="swap-btn" class="btn btn-outline-light border-0 rounded-circle py-2 px-3 transition-smooth" style="background: rgba(255,255,255,0.05);">
-                        <i class="bi bi-arrow-left-right fs-5 text-glow-cyan d-none d-md-inline-block"></i>
-                        <i class="bi bi-arrow-down-up fs-5 text-glow-cyan d-inline-block d-md-none"></i>
-                    </button>
-                </div>
-
-                <div class="col-md-4">
-                    <div class="form-floating">
-                        <input type="text" class="form-control bg-transparent text-white border-secondary" id="end-input" name="end" value="{{ end }}" placeholder="迄點（如：逢甲大學）" required>
-                        <label for="end-input" class="text-secondary">迄點（站名或地標）</label>
+                <div class="mb-4">
+                    <label for="end" class="form-label text-white fw-bold">終點</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-map-marker-alt text-danger"></i></span>
+                        <input type="text" id="end" name="end" value="{{ end or '' }}" class="form-control glass-input" placeholder="例如：一中街、靜宜大學..." required>
                     </div>
                 </div>
-
-                <div class="col-md-2 d-grid">
-                    <button type="submit" class="btn glow-btn-cyan py-3">
-                        <i class="bi bi-search me-1"></i>開始規劃
-                    </button>
-                </div>
+                
+                <button type="submit" class="btn btn-gradient w-100 py-3">
+                    <i class="fas fa-search-location me-2"></i>規劃最佳路線
+                </button>
             </form>
         </div>
+    </div>
 
-        <!-- Planning Results -->
-        {% if start and end %}
-            <div class="mb-4">
-                <h4 class="text-white mb-4">
-                    <i class="bi bi-signpost-split me-2 text-glow-blue"></i>
-                    從 <span class="text-glow-cyan font-bold">{{ start }}</span> 到 <span class="text-glow-cyan font-bold">{{ end }}</span> 的推薦路線
-                </h4>
+    <!-- Right side: Planning Results -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4 h-100">
+            <h4 class="text-white fw-bold mb-4">
+                {% if start and end %}
+                    從 <span class="text-gradient">{{ start }}</span> 到 <span class="text-gradient">{{ end }}</span> 的規劃結果
+                {% else %}
+                    轉乘規劃結果
+                {% endif %}
+            </h4>
 
-                {% if results %}
-                    <div class="row g-4">
-                        {% for route in results %}
-                            <div class="col-md-12">
-                                <div class="glass-card p-4">
-                                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-3 border-bottom border-secondary" style="--bs-border-opacity: 0.15;">
-                                        <h5 class="m-0 text-white font-bold">{{ route.title }}</h5>
-                                        <div class="d-flex gap-3 align-items-center mt-2 mt-md-0">
-                                            <span class="fs-4 text-glow-cyan font-black">{{ route.total_time }} <small class="fs-6">分鐘</small></span>
-                                            <span class="badge bg-secondary py-2 px-3 rounded-pill text-glow-blue">
-                                                <i class="bi bi-arrow-left-right me-1"></i>轉乘 {{ route.transfers }} 次
-                                            </span>
-                                            <span class="badge bg-dark py-2 px-3 rounded-pill text-secondary">
-                                                <i class="bi bi-person-walking me-1"></i>步行 {{ route.walk_time }} 分鐘
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <!-- Step-by-Step Leg Details -->
-                                    <div class="timeline-container mt-4">
-                                        {% for leg in route.legs %}
-                                            {% if leg.type == 'bus' %}
-                                                <div class="timeline-item bus">
-                                                    <div class="d-flex justify-content-between align-items-start">
-                                                        <div>
-                                                            <div class="d-flex align-items-center gap-2 mb-1">
-                                                                <span class="badge bg-cyan text-dark font-black" style="background-color: var(--accent-cyan);">{{ leg.name }}</span>
-                                                                <span class="text-secondary fs-7">搭乘約 {{ leg.duration }} 分鐘</span>
-                                                            </div>
-                                                            <div class="text-white font-semibold mb-1">
-                                                                {{ leg.from }} <i class="bi bi-arrow-right mx-2 text-secondary"></i> {{ leg.to }}
-                                                            </div>
-                                                            <p class="text-secondary m-0 fs-7"><i class="bi bi-info-circle me-1"></i>{{ leg.note }}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            {% elif leg.type == 'walk' %}
-                                                <div class="timeline-item walk">
-                                                    <div class="d-flex align-items-center gap-3">
-                                                        <div>
-                                                            <div class="text-secondary font-semibold">
-                                                                <i class="bi bi-person-walking me-2"></i>{{ leg.from }} <span class="mx-1">步行至</span> {{ leg.to }}
-                                                                <span class="ms-2 fs-7 text-secondary">約 {{ leg.duration }} 分鐘 ({{ leg.note }})</span>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            {% endif %}
-                                        {% endfor %}
-                                        
-                                        <!-- Destination indicator -->
-                                        <div class="timeline-item m-0 p-0" style="padding-bottom: 0px !important;">
-                                            <div class="text-success font-bold d-flex align-items-center gap-2">
-                                                <i class="bi bi-flag-fill fs-5"></i> 抵達終點：{{ end }}
+            {% if results %}
+                <div class="row">
+                    {% for result in results %}
+                        <div class="col-12 mb-4">
+                            <div class="glass-card p-4 border border-secondary border-opacity-15">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                    <h5 class="text-white mb-0 fw-bold">{{ result.summary }}</h5>
+                                    <span class="badge bg-indigo bg-opacity-20 text-gradient fs-6 px-3 py-2 border border-primary border-opacity-25">
+                                        <i class="far fa-clock me-1"></i>{{ result.duration }}
+                                    </span>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <div class="position-relative ps-4" style="border-left: 2px dashed rgba(255, 255, 255, 0.15); margin-left: 10px;">
+                                        {% for step in result.steps %}
+                                            <div class="mb-4 position-relative">
+                                                <!-- Custom icons for step milestones -->
+                                                <span class="position-absolute" style="left: -33px; top: 0; background: var(--bg-secondary); border-radius: 50%; padding: 4px; border: 1px solid rgba(255,255,255,0.2);">
+                                                    {% if loop.first %}
+                                                        <i class="fas fa-walking text-success fa-fw"></i>
+                                                    {% elif loop.last %}
+                                                        <i class="fas fa-flag-checkered text-danger fa-fw"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-bus-alt text-indigo fa-fw"></i>
+                                                    {% endif %}
+                                                </span>
+                                                <div class="text-white fw-bold">{{ step }}</div>
+                                                {% if not loop.last %}
+                                                    <div class="text-muted small mt-1">預估步行或乘車時間 (正常行駛)</div>
+                                                {% endif %}
                                             </div>
-                                        </div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <!-- No results fallback -->
-                    <div class="glass-card p-5 text-center my-4">
-                        <i class="bi bi-search-heart text-secondary display-3 mb-3"></i>
-                        <h5 class="text-white">查無乘車方案</h5>
-                        <p class="text-secondary mb-0">抱歉，目前系統無法在指定起迄點間找到公車方案。請確認站牌名稱或稍後再試。</p>
-                    </div>
-                {% endif %}
-            {% endif %}
-
-        {% else %}
-            <!-- Search Form Guide -->
-            <div class="glass-card p-4 text-center my-5">
-                <i class="bi bi-compass-fill text-glow-cyan display-3 mb-3"></i>
-                <h5 class="text-white">探索全新的乘車規劃</h5>
-                <p class="text-secondary max-w-lg mx-auto">台中等公車 2.0 涵蓋了台灣大道 BRT 與市區主要幹線公車。您可以嘗試搜尋以下的經典示範路線來體驗：</p>
-                <div class="d-flex justify-content-center gap-3 mt-3">
-                    <a href="{{ url_for('main.route_plan', start='台中車站', end='逢甲大學') }}" class="btn btn-outline-info border-1 px-3">
-                        台中車站 <i class="bi bi-arrow-right"></i> 逢甲大學
-                    </a>
-                    <a href="{{ url_for('main.route_plan', start='靜宜大學', end='台中車站') }}" class="btn btn-outline-info border-1 px-3">
-                        靜宜大學 <i class="bi bi-arrow-right"></i> 台中車站
-                    </a>
+                        </div>
+                    {% endfor %}
                 </div>
-            </div>
-        {% endif %}
+            {% elif start and end %}
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-secondary-color"></i>
+                    <p>抱歉，無法為您規劃此段路線。</p>
+                    <p class="small">請確認輸入的地點是否正確，或是嘗試其他鄰近站名。</p>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted d-flex flex-column align-items-center justify-content-center h-75">
+                    <i class="fas fa-map-signs fa-4x mb-3 text-secondary-color" style="opacity: 0.3;"></i>
+                    <p class="fs-5">請在左側輸入起訖點，以取得公車搭乘規劃。</p>
+                    <p class="small text-muted">系統會為您計算多種轉乘方案，並列出各步驟詳情。</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

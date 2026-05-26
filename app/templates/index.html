@@ -1,76 +1,145 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block title %}首頁 - 台中等公車 2.0{% endblock %}
 
 {% block content %}
-<div class="row align-items-center justify-content-center py-5">
+<!-- Hero Search Section -->
+<div class="row justify-content-center mb-5">
     <div class="col-lg-8 text-center">
-        <h1 class="display-4 fw-bold mb-3 text-glow-cyan">Taichung Bus 2.0</h1>
-        <p class="lead text-secondary mb-5">學生與通勤族的最愛，整合即時公車動態與司機精準路況回報。</p>
-
-        <!-- Quick actions glass card -->
-        <div class="glass-card p-4 text-start mb-5">
-            <h5 class="text-glow-blue mb-4"><i class="bi bi-search me-2"></i>快捷查詢與規劃</h5>
-            
-            <form action="{{ url_for('main.route_plan') }}" method="GET" class="row g-3">
-                <div class="col-md-5">
-                    <div class="form-floating mb-3 mb-md-0">
-                        <input type="text" class="form-control bg-transparent text-white border-secondary" id="start-input-quick" name="start" placeholder="起點站名或地標" required>
-                        <label for="start-input-quick" class="text-secondary">起點（例如：台中車站）</label>
-                    </div>
-                </div>
-                <div class="col-md-5">
-                    <div class="form-floating mb-3 mb-md-0">
-                        <input type="text" class="form-control bg-transparent text-white border-secondary" id="end-input-quick" name="end" placeholder="迄點站名或地標" required>
-                        <label for="end-input-quick" class="text-secondary">迄點（例如：逢甲夜市）</label>
-                    </div>
-                </div>
-                <div class="col-md-2 d-grid">
-                    <button type="submit" class="btn glow-btn-cyan d-flex align-items-center justify-content-center py-3">
-                        <i class="bi bi-arrow-right-circle-fill me-2 fs-5"></i>搜尋
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Hot routes section -->
-        <div class="row justify-content-center">
-            <div class="col-md-10 text-start">
-                <h6 class="text-secondary uppercase tracking-wider mb-3"><i class="bi bi-fire text-danger me-2"></i>熱門查詢公車路線</h6>
-                <div class="d-flex flex-wrap gap-2">
-                    {% for route in popular_routes %}
-                        <a href="{{ url_for('bus.bus_status', route_id=route) }}" class="btn glass-card text-white py-2 px-4 d-flex align-items-center">
-                            <span class="badge bg-cyan text-dark me-2" style="background-color: var(--accent-cyan);">{{ route }}</span>
-                            路公車
-                        </a>
-                    {% endfor %}
-                </div>
+        <h1 class="display-4 fw-bold mb-3 text-white">智慧乘車，<span class="text-gradient">一手掌握</span></h1>
+        <p class="fs-5 text-secondary-color mb-4">即時更新公車到站預估、結合司機回報路況，給您最靠譜的通勤體驗。</p>
+        
+        <!-- Search Form -->
+        <div class="position-relative w-100 max-width-md mx-auto">
+            <div class="glass-card p-2 d-flex align-items-center">
+                <i class="fas fa-search text-muted ms-3 me-2"></i>
+                <input type="text" id="route-search" class="form-control bg-transparent border-0 text-white shadow-none" placeholder="輸入路線代號，如 300, 301..." autocomplete="off">
+                <button class="btn btn-gradient px-4" onclick="const val = document.getElementById('route-search').value.trim(); if(val) window.location.href = '/bus/' + val;">搜尋</button>
             </div>
-        </div>
-
-        <!-- Additional helper features -->
-        <div class="row g-4 mt-5 text-start">
-            <div class="col-md-6">
-                <div class="glass-card p-4 h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-geo-alt-fill text-glow-cyan fs-3 me-3"></i>
-                        <h5 class="m-0 text-white">附近站牌與公車</h5>
-                    </div>
-                    <p class="text-secondary">快速探索您目前所在位置 500 公尺內的公車站，以及各站預估到站時間。</p>
-                    <button id="geo-btn" class="btn btn-outline-info border-1 w-100 py-2">📍 取得目前位置</button>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="glass-card p-4 h-100">
-                    <div class="d-flex align-items-center mb-3">
-                        <i class="bi bi-patch-check-fill text-glow-blue fs-3 me-3"></i>
-                        <h5 class="m-0 text-white">司機路況回報機制</h5>
-                    </div>
-                    <p class="text-secondary">我們與公車司機建立連線！司機能夠在車上回報發車延誤、車內滿載、車輛故障等即時狀態，第一手掌握最真切的行車動態。</p>
-                    <a href="{{ url_for('driver.login_page') }}" class="btn btn-outline-primary border-1 w-100 py-2">👤 進入司機專區</a>
-                </div>
-            </div>
+            <!-- Suggestion Box -->
+            <div id="search-suggestions" class="suggestion-list d-none text-start"></div>
         </div>
     </div>
 </div>
+
+<!-- Popular Quick Links -->
+<div class="row mb-5">
+    <div class="col-12">
+        <h3 class="mb-4 text-white"><i class="fas fa-fire-alt text-gradient me-2"></i>熱門公車路線</h3>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="{{ url_for('bus.bus_status', route_id='300') }}" class="text-decoration-none">
+            <div class="glass-card p-4 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1 text-white">300 路公車</h4>
+                    <p class="text-muted mb-0 small">台中車站 - 靜宜大學 (優化專用道)</p>
+                </div>
+                <div class="bg-indigo bg-opacity-10 p-3 rounded-circle text-gradient">
+                    <i class="fas fa-bus fa-2x"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="{{ url_for('bus.bus_status', route_id='301') }}" class="text-decoration-none">
+            <div class="glass-card p-4 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1 text-white">301 路公車</h4>
+                    <p class="text-muted mb-0 small">新民高中 - 中興大學</p>
+                </div>
+                <div class="bg-purple bg-opacity-10 p-3 rounded-circle text-gradient">
+                    <i class="fas fa-bus fa-2x"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-4 mb-3">
+        <a href="{{ url_for('main.route_plan') }}" class="text-decoration-none">
+            <div class="glass-card p-4 h-100 d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1 text-white">轉乘規劃</h4>
+                    <p class="text-muted mb-0 small">輸入起訖點，規劃最佳路線</p>
+                </div>
+                <div class="bg-pink bg-opacity-10 p-3 rounded-circle text-gradient">
+                    <i class="fas fa-directions fa-2x"></i>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Favorite Stops Section -->
+<div class="row">
+    <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0 text-white"><i class="fas fa-bookmark text-gradient me-2"></i>常用站牌收藏</h3>
+        <span class="badge bg-secondary bg-opacity-50 fs-6 px-3 py-2 rounded-pill" id="fav-count">{{ favorites|length }} 個收藏</span>
+    </div>
+    
+    <div class="col-12">
+        <div class="row" id="favorites-grid">
+            {% if favorites %}
+                {% for fav in favorites %}
+                    <div class="col-md-4 mb-4 favorite-card">
+                        <div class="glass-card h-100 d-flex flex-column justify-content-between">
+                            <!-- Card Header & Info -->
+                            <div class="p-4 cursor-pointer" onclick="window.location.href = '{{ url_for('bus.bus_status', route_id=fav.route_id) }}'">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-primary bg-opacity-20 text-gradient font-weight-bold fs-6 border border-primary border-opacity-20 px-3 py-1">
+                                        {{ fav.route_id }} 路公車
+                                    </span>
+                                    <span class="text-muted small">
+                                        {% if fav.direction == '0' or fav.direction == 0 %}
+                                            <i class="fas fa-arrow-right me-1"></i>去程
+                                        {% else %}
+                                            <i class="fas fa-arrow-left me-1"></i>回程
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <h4 class="text-white fw-bold mb-1 mt-2">{{ fav.stop_name }}</h4>
+                                <p class="text-muted mb-0 small"><i class="fas fa-map-marker-alt me-1"></i>台中市智慧站牌</p>
+                            </div>
+                            
+                            <!-- Card Actions -->
+                            <div class="px-4 pb-4 pt-0 d-flex gap-2">
+                                <a href="{{ url_for('bus.bus_status', route_id=fav.route_id) }}" class="btn btn-sm btn-glass flex-grow-1">
+                                    <i class="fas fa-eye me-1"></i>看動態
+                                </a>
+                                <button class="btn btn-sm btn-glass-danger px-3" 
+                                        data-action="delete"
+                                        onclick="removeFavorite('{{ fav.route_id }}', '{{ fav.stop_name }}', '{{ fav.direction }}', this)">
+                                    <i class="fas fa-trash-alt"></i> 移除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="fas fa-bookmark fa-3x mb-3 text-secondary-color" style="opacity: 0.3;"></i>
+                    <p>目前尚無收藏站牌</p>
+                    <p class="small">您可以在個別的「公車動態」頁面中，點擊「收藏此站」按鈕來加入清單。</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Keep favorites counter in sync on AJAX deletion
+    const observer = new MutationObserver(() => {
+        const grid = document.getElementById('favorites-grid');
+        const countBadge = document.getElementById('fav-count');
+        if (grid && countBadge) {
+            const cards = grid.querySelectorAll('.favorite-card');
+            countBadge.textContent = `${cards.length} 個收藏`;
+        }
+    });
+    
+    const grid = document.getElementById('favorites-grid');
+    if (grid) {
+        observer.observe(grid, { childList: true });
+    }
+</script>
 {% endblock %}

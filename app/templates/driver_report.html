@@ -1,94 +1,90 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}司機狀態回報 - 台中等公車 2.0{% endblock %}
+{% block title %}路況狀態回報 - 台中等公車 2.0{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
+    <div class="col-lg-8">
         <!-- Driver Profile Header -->
         <div class="glass-card p-4 mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="text-secondary fs-8 uppercase font-semibold">當前登入駕駛</span>
-                    <h4 class="text-white font-bold m-0"><i class="bi bi-person-badge text-glow-cyan me-2"></i>{{ session['driver_name'] }}</h4>
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-indigo bg-opacity-20 p-2 rounded-circle text-gradient">
+                        <i class="fas fa-id-card fa-2x"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-white fw-bold mb-0">行車回報中心</h4>
+                        <span class="text-muted small">登入人員：{{ session.get('driver_name', '系統司機') }}</span>
+                    </div>
                 </div>
-                <form action="{{ url_for('driver.logout') }}" method="POST" class="m-0">
-                    <button type="submit" class="btn btn-outline-danger btn-sm px-3">登出系統</button>
-                </form>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-glass" onclick="fetchDriverLocation()">
+                        <i class="fas fa-sync-alt me-1"></i>重新定位
+                    </button>
+                    <form action="{{ url_for('driver.logout') }}" method="POST" class="m-0">
+                        <button type="submit" class="btn btn-sm btn-glass-danger">
+                            <i class="fas fa-sign-out-alt me-1"></i>登出系統
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <!-- Reporting Form Glass Card -->
-        <div class="glass-card p-4">
-            <h5 class="text-white font-bold mb-4 text-glow-blue"><i class="bi bi-send-fill me-2"></i>提交即時車況路況</h5>
+        <!-- Report Form Card -->
+        <div class="glass-card p-5">
+            <h3 class="text-white fw-bold mb-4"><i class="fas fa-bullhorn text-gradient me-2"></i>回報今日路況</h3>
             
-            <form action="{{ url_for('driver.report_submit') }}" method="POST">
-                <!-- Route Selection -->
+            <form action="{{ url_for('driver.report_submit') }}" method="POST" id="driver-report-form">
+                <!-- Route ID -->
                 <div class="mb-4">
-                    <label for="route_id" class="form-label text-white font-semibold">執勤公車路線代號</label>
-                    <input type="text" class="form-control bg-transparent text-white border-secondary py-2 text-center fs-4 font-black text-glow-cyan" id="route_id" name="route_id" placeholder="300" style="letter-spacing: 2px;" required>
-                    <div class="form-text text-secondary text-center">請輸入當前行駛之路線數字 (例如: 300)</div>
+                    <label for="route_id" class="form-label text-white fw-bold fs-5">公車路線代號</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-bus"></i></span>
+                        <input type="text" id="route_id" name="route_id" class="form-control glass-input py-3 fs-5" placeholder="例如：300, 301..." required>
+                    </div>
+                    <div class="text-muted small mt-1">請填寫您目前駕駛的公車路線代號。</div>
                 </div>
 
-                <!-- Status Selector -->
+                <!-- GPS Location (Read-only/auto-fetched) -->
                 <div class="mb-4">
-                    <label class="form-label text-white font-semibold mb-3">車輛狀態回報</label>
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <input type="radio" class="btn-check" name="status" id="status-delay" value="發車延誤" required>
-                            <label class="btn btn-outline-warning w-100 py-3 d-flex flex-column align-items-center gap-2" for="status-delay">
-                                <i class="bi bi-hourglass-split fs-3"></i>
-                                <span class="fw-bold">發車延誤</span>
-                            </label>
-                        </div>
-                        <div class="col-6">
-                            <input type="radio" class="btn-check" name="status" id="status-full" value="車輛滿載" required>
-                            <label class="btn btn-outline-danger w-100 py-3 d-flex flex-column align-items-center gap-2" for="status-full">
-                                <i class="bi bi-people-fill fs-3"></i>
-                                <span class="fw-bold">車輛滿載</span>
-                            </label>
-                        </div>
-                        <div class="col-6">
-                            <input type="radio" class="btn-check" name="status" id="status-break" value="機件故障" required>
-                            <label class="btn btn-outline-danger w-100 py-3 d-flex flex-column align-items-center gap-2" for="status-break">
-                                <i class="bi bi-tools fs-3"></i>
-                                <span class="fw-bold">機件故障</span>
-                            </label>
-                        </div>
-                        <div class="col-6">
-                            <input type="radio" class="btn-check" name="status" id="status-normal" value="行車正常" required>
-                            <label class="btn btn-outline-success w-100 py-3 d-flex flex-column align-items-center gap-2" for="status-normal">
-                                <i class="bi bi-check-circle-fill fs-3"></i>
-                                <span class="fw-bold">行車正常</span>
-                            </label>
-                        </div>
+                    <label class="form-label text-white fw-bold fs-5">GPS 衛星定位</label>
+                    <div class="p-3 glass-card bg-opacity-20" id="location-status" style="border-style: dashed;">
+                        <i class="fas fa-spinner fa-spin text-indigo me-1"></i>正在初始化位置感測器...
                     </div>
+                    <!-- Hidden Lat/Lng fields -->
+                    <input type="hidden" name="latitude" id="report-latitude">
+                    <input type="hidden" name="longitude" id="report-longitude">
                 </div>
 
-                <!-- Location Coordinates -->
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <label class="form-label text-white font-semibold m-0">當前 GPS 座標 (選填)</label>
-                        <button type="button" id="get-gps-btn" class="btn btn-outline-info btn-xs py-1 px-2 fs-8">
-                            <i class="bi bi-geo-fill me-1"></i>抓取目前 GPS
-                        </button>
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <input type="number" step="any" class="form-control bg-transparent text-secondary border-secondary text-center" id="latitude" name="latitude" placeholder="緯度 (Latitude)">
+                <!-- Large Interactive Status Selector -->
+                <div class="mb-5">
+                    <label class="form-label text-white fw-bold fs-5 mb-3">選擇回報狀態</label>
+                    <input type="hidden" name="status" id="report-status-value" required>
+                    
+                    <div class="driver-btn-container">
+                        <div class="driver-report-btn" data-status="正常行駛" onclick="selectStatus(this)">
+                            <i class="fas fa-check-circle text-success"></i>
+                            <span>正常行駛</span>
                         </div>
-                        <div class="col-6">
-                            <input type="number" step="any" class="form-control bg-transparent text-secondary border-secondary text-center" id="longitude" name="longitude" placeholder="經度 (Longitude)">
+                        <div class="driver-report-btn" data-status="車多延誤" onclick="selectStatus(this)">
+                            <i class="fas fa-clock text-warning"></i>
+                            <span>車多延誤</span>
+                        </div>
+                        <div class="driver-report-btn" data-status="客滿超載" onclick="selectStatus(this)">
+                            <i class="fas fa-users text-pink"></i>
+                            <span>客滿超載</span>
+                        </div>
+                        <div class="driver-report-btn" data-status="車輛故障" onclick="selectStatus(this)">
+                            <i class="fas fa-times-circle text-danger"></i>
+                            <span>車輛故障</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Submit Button -->
-                <div class="d-grid gap-2 mt-5">
-                    <button type="submit" class="btn glow-btn-cyan py-3 fs-5 font-bold">
-                        <i class="bi bi-check2-circle me-2"></i>送出狀態回報
-                    </button>
-                </div>
+                <button type="submit" class="btn btn-gradient w-100 py-3 fs-5" id="submit-btn" disabled>
+                    <i class="fas fa-paper-plane me-2"></i>送出回報資料
+                </button>
             </form>
         </div>
     </div>
@@ -97,42 +93,44 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const gpsBtn = document.getElementById('get-gps-btn');
-    const latInput = document.getElementById('latitude');
-    const lngInput = document.getElementById('longitude');
+    // Automatically trigger geolocation fetching on load
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchDriverLocation();
+    });
 
-    if (gpsBtn && latInput && lngInput) {
-        gpsBtn.addEventListener('click', () => {
-            gpsBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>抓取中';
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        latInput.value = pos.coords.latitude.toFixed(6);
-                        lngInput.value = pos.coords.longitude.toFixed(6);
-                        gpsBtn.innerHTML = '<i class="bi bi-check-circle-fill text-success me-1"></i>成功';
-                        setTimeout(() => {
-                            gpsBtn.innerHTML = '<i class="bi bi-geo-fill me-1"></i>重新抓取';
-                        }, 2000);
-                    },
-                    (err) => {
-                        console.error(err);
-                        // Fallback to random Taichung coordinate to make verification simple if browser blocks
-                        const latRandom = (24.137 + (Math.random() - 0.5) * 0.05).toFixed(6);
-                        const lngRandom = (120.686 + (Math.random() - 0.5) * 0.05).toFixed(6);
-                        latInput.value = latRandom;
-                        lngInput.value = lngRandom;
-                        gpsBtn.innerHTML = '<i class="bi bi-check-circle-fill text-warning me-1"></i>模擬成功';
-                        setTimeout(() => {
-                            gpsBtn.innerHTML = '<i class="bi bi-geo-fill me-1"></i>重新抓取';
-                        }, 2000);
-                    }
-                );
-            } else {
-                gpsBtn.innerHTML = '❌ 不支援';
-            }
+    // Handle large button selection and update hidden form values
+    function selectStatus(element) {
+        // Deselect all
+        document.querySelectorAll('.driver-report-btn').forEach(btn => {
+            btn.classList.remove('active-status');
         });
+        
+        // Select clicked
+        element.classList.add('active-status');
+        
+        // Update hidden status input
+        const statusVal = element.dataset.status;
+        const hiddenInput = document.getElementById('report-status-value');
+        hiddenInput.value = statusVal;
+        
+        // Enable submit button
+        document.getElementById('submit-btn').removeAttribute('disabled');
+        
+        // Visual haptic response (micro-vibration if supported)
+        if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+        }
     }
-});
+
+    // Double check form validation
+    document.getElementById('driver-report-form').addEventListener('submit', (e) => {
+        const routeVal = document.getElementById('route_id').value.trim();
+        const statusVal = document.getElementById('report-status-value').value;
+        
+        if (!routeVal || !statusVal) {
+            e.preventDefault();
+            showToast('請務必填寫路線代號並選擇回報狀態！', 'warning');
+        }
+    });
 </script>
 {% endblock %}
