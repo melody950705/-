@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}路況狀態回報 - 台中等公車 2.0{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <!-- Driver Profile Header -->
+        <div class="glass-card p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-indigo bg-opacity-20 p-2 rounded-circle text-gradient">
+                        <i class="fas fa-id-card fa-2x"></i>
+                    </div>
+                    <div>
+                        <h4 class="text-white fw-bold mb-0">行車回報中心</h4>
+                        <span class="text-muted small">登入人員：{{ session.get('driver_name', '系統司機') }}</span>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-glass" onclick="fetchDriverLocation()">
+                        <i class="fas fa-sync-alt me-1"></i>重新定位
+                    </button>
+                    <form action="{{ url_for('driver.logout') }}" method="POST" class="m-0">
+                        <button type="submit" class="btn btn-sm btn-glass-danger">
+                            <i class="fas fa-sign-out-alt me-1"></i>登出系統
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Form Card -->
+        <div class="glass-card p-5">
+            <h3 class="text-white fw-bold mb-4"><i class="fas fa-bullhorn text-gradient me-2"></i>回報今日路況</h3>
+            
+            <form action="{{ url_for('driver.report_submit') }}" method="POST" id="driver-report-form">
+                <!-- Route ID -->
+                <div class="mb-4">
+                    <label for="route_id" class="form-label text-white fw-bold fs-5">公車路線代號</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-bus"></i></span>
+                        <input type="text" id="route_id" name="route_id" class="form-control glass-input py-3 fs-5" placeholder="例如：300, 301..." required>
+                    </div>
+                    <div class="text-muted small mt-1">請填寫您目前駕駛的公車路線代號。</div>
+                </div>
+
+                <!-- GPS Location (Read-only/auto-fetched) -->
+                <div class="mb-4">
+                    <label class="form-label text-white fw-bold fs-5">GPS 衛星定位</label>
+                    <div class="p-3 glass-card bg-opacity-20" id="location-status" style="border-style: dashed;">
+                        <i class="fas fa-spinner fa-spin text-indigo me-1"></i>正在初始化位置感測器...
+                    </div>
+                    <!-- Hidden Lat/Lng fields -->
+                    <input type="hidden" name="latitude" id="report-latitude">
+                    <input type="hidden" name="longitude" id="report-longitude">
+                </div>
+
+                <!-- Large Interactive Status Selector -->
+                <div class="mb-5">
+                    <label class="form-label text-white fw-bold fs-5 mb-3">選擇回報狀態</label>
+                    <input type="hidden" name="status" id="report-status-value" required>
+                    
+                    <div class="driver-btn-container">
+                        <div class="driver-report-btn" data-status="正常行駛" onclick="selectStatus(this)">
+                            <i class="fas fa-check-circle text-success"></i>
+                            <span>正常行駛</span>
+                        </div>
+                        <div class="driver-report-btn" data-status="車多延誤" onclick="selectStatus(this)">
+                            <i class="fas fa-clock text-warning"></i>
+                            <span>車多延誤</span>
+                        </div>
+                        <div class="driver-report-btn" data-status="客滿超載" onclick="selectStatus(this)">
+                            <i class="fas fa-users text-pink"></i>
+                            <span>客滿超載</span>
+                        </div>
+                        <div class="driver-report-btn" data-status="車輛故障" onclick="selectStatus(this)">
+                            <i class="fas fa-times-circle text-danger"></i>
+                            <span>車輛故障</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-gradient w-100 py-3 fs-5" id="submit-btn" disabled>
+                    <i class="fas fa-paper-plane me-2"></i>送出回報資料
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Automatically trigger geolocation fetching on load
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchDriverLocation();
+    });
+
+    // Handle large button selection and update hidden form values
+    function selectStatus(element) {
+        // Deselect all
+        document.querySelectorAll('.driver-report-btn').forEach(btn => {
+            btn.classList.remove('active-status');
+        });
+        
+        // Select clicked
+        element.classList.add('active-status');
+        
+        // Update hidden status input
+        const statusVal = element.dataset.status;
+        const hiddenInput = document.getElementById('report-status-value');
+        hiddenInput.value = statusVal;
+        
+        // Enable submit button
+        document.getElementById('submit-btn').removeAttribute('disabled');
+        
+        // Visual haptic response (micro-vibration if supported)
+        if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+        }
+    }
+
+    // Double check form validation
+    document.getElementById('driver-report-form').addEventListener('submit', (e) => {
+        const routeVal = document.getElementById('route_id').value.trim();
+        const statusVal = document.getElementById('report-status-value').value;
+        
+        if (!routeVal || !statusVal) {
+            e.preventDefault();
+            showToast('請務必填寫路線代號並選擇回報狀態！', 'warning');
+        }
+    });
+</script>
+{% endblock %}

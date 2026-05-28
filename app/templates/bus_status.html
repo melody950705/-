@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}{{ route_id }} 路公車即時動態 - 台中等公車 2.0{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Sidebar or Back Navigation -->
+    <div class="col-12 mb-4">
+        <a href="{{ url_for('main.index') }}" class="btn btn-glass">
+            <i class="fas fa-arrow-left me-2"></i>返回首頁
+        </a>
+    </div>
+
+    <!-- Route Information Header -->
+    <div class="col-lg-8 mb-4">
+        <div class="glass-card p-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div>
+                    <span class="badge bg-primary bg-opacity-20 text-gradient font-weight-bold fs-6 border border-primary border-opacity-20 px-3 py-1 mb-2">
+                        即時動態
+                    </span>
+                    <h1 class="text-white fw-bold mb-0">{{ route_id }} 路公車</h1>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-glass direction-tab active px-4 py-2" data-direction="0">
+                        <i class="fas fa-sign-in-alt me-1"></i>去程
+                    </button>
+                    <button class="btn btn-glass direction-tab px-4 py-2" data-direction="1">
+                        <i class="fas fa-sign-out-alt me-1"></i>返程
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Sidebar - Route reports and information -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass-card p-4 h-100">
+            <h4 class="text-white mb-3 fw-bold"><i class="fas fa-bullhorn text-gradient me-2"></i>即時路況/特報</h4>
+            <div id="report-badges">
+                <div class="text-muted small py-2">
+                    <i class="fas fa-spinner fa-spin me-1"></i>正在載入司機回報路況...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Timeline Container -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary border-opacity-10 pb-3">
+                <h4 class="text-white fw-bold mb-0">路線沿途站牌</h4>
+                <span class="text-muted small"><i class="fas fa-sync-alt fa-spin text-indigo me-1"></i>每 10 秒自動重新整理</span>
+            </div>
+            
+            <div id="bus-timeline" class="timeline-container">
+                <div class="text-center py-5 text-muted">
+                    <i class="fas fa-spinner fa-spin fa-3x mb-3 text-gradient"></i>
+                    <p>正在載入即時動態資料...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Inject session favorites from Flask into the client-side list
+    const favoritesList = {{ session.get('favorites', [])|tojson }};
+    const routeId = "{{ route_id }}";
+    
+    // Tab event listener for toggling directions
+    document.querySelectorAll('.direction-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.direction-tab').forEach(t => t.classList.remove('active', 'btn-gradient'));
+            document.querySelectorAll('.direction-tab').forEach(t => t.classList.add('btn-glass'));
+            
+            tab.classList.remove('btn-glass');
+            tab.classList.add('active', 'btn-gradient');
+            
+            // Re-render immediately
+            fetchBusStatus(routeId, favoritesList);
+        });
+    });
+
+    // Start polling automatically
+    initBusStatusPolling(routeId, favoritesList);
+    
+    // Clean up timer if user leaves the page
+    window.addEventListener('beforeunload', () => {
+        if (busStatusTimer) {
+            clearInterval(busStatusTimer);
+        }
+    });
+</script>
+{% endblock %}
