@@ -1,170 +1,155 @@
+import os
 import sqlite3
 
 def get_db_connection():
     """
-    建立與 SQLite 資料庫的連線。
+    建立並回傳 SQLite 資料庫連線。
     
-    Returns:
-        sqlite3.Connection: 資料庫連線物件，且設定 row_factory 為 sqlite3.Row
+    設定 row_factory 為 sqlite3.Row，使查詢結果能以欄位名稱進行存取。
+    使用絕對路徑以避免在不同工作目錄下執行時找不到 database.db。
+    
+    :return: sqlite3.Connection 連線物件
     """
-    try:
-        conn = sqlite3.connect('instance/database.db')
-        conn.row_factory = sqlite3.Row
-        return conn
-    except sqlite3.Error as e:
-        print(f"Database connection error: {e}")
-        raise e
+    # 確保以專案根目錄的絕對路徑存取 database.db
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    db_path = os.path.join(base_dir, 'instance', 'database.db')
+    
+    # 確保 instance 目錄存在
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 class Report:
     @staticmethod
-    def create(data):
+    def create(data=None, **kwargs):
         """
-        新增一筆回報記錄。
+        新增一筆路況/車況回報記錄。
         
-        Args:
-            data (dict): 包含 'driver_id', 'route_id', 'status', 'latitude' (選填), 'longitude' (選填) 的字典
-            
-        Returns:
-            int: 新建立的回報 ID，若失敗則為 None
+        :param data: 字典型態的資料，包含 'driver_id', 'route_id', 'status', 'latitude', 'longitude'
+        :param kwargs: 關鍵字引數，相容原本的參數傳遞方式 (driver_id, route_id, status, latitude, longitude)
+        :return: 新增成功的報告 ID (int)，若失敗則傳回 None
         """
+        if data is None:
+            data = kwargs
+            
+        driver_id = data.get('driver_id')
+        route_id = data.get('route_id')
+        status = data.get('status')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
                 '''INSERT INTO reports (driver_id, route_id, status, latitude, longitude) 
                    VALUES (?, ?, ?, ?, ?)''',
-                (
-                    data['driver_id'],
-                    data['route_id'],
-                    data['status'],
-                    data.get('latitude'),
-                    data.get('longitude')
-                )
+                (driver_id, route_id, status, latitude, longitude)
             )
             conn.commit()
             report_id = cursor.lastrowid
             conn.close()
             return report_id
-        except sqlite3.Error as e:
-            print(f"Error creating report: {e}")
+        except Exception as e:
+            print(f"Error in Report.create: {e}")
             return None
 
     @staticmethod
     def get_by_id(report_id):
         """
-        取得指定 ID 的單筆回報記錄。
+        根據 ID 取得單筆回報記錄。
         
-        Args:
-            report_id (int): 回報 ID
-            
-        Returns:
-            dict: 回報資料字典，若找不到或失敗則傳回 None
+        :param report_id: 回報記錄 ID (int)
+        :return: 包含回報資料的字典 (dict)，若找不到或錯誤則傳回 None
         """
         try:
             conn = get_db_connection()
-            row = conn.execute('SELECT * FROM reports WHERE id = ?', (report_id,)).fetchone()
+            report = conn.execute('SELECT * FROM reports WHERE id = ?', (report_id,)).fetchone()
             conn.close()
-            return dict(row) if row else None
-        except sqlite3.Error as e:
-            print(f"Error getting report by id {report_id}: {e}")
+            return dict(report) if report else None
+        except Exception as e:
+            print(f"Error in Report.get_by_id: {e}")
             return None
 
     @staticmethod
     def get_all():
         """
-        取得所有回報記錄，依建立時間降冪排序，並關聯司機姓名。
+        取得所有回報記錄，包含司機姓名，依時間降序排列。
         
-        Returns:
-            list: 包含所有回報資料字典的清單，若失敗則傳回空清單
+        :return: 回報記錄字典組成的列表 (list of dict)
         """
         try:
             conn = get_db_connection()
-            query = '''
-                SELECT r.*, d.name as driver_name 
-                FROM reports r 
-                LEFT JOIN drivers d ON r.driver_id = d.id 
-                ORDER BY r.created_at DESC
-            '''
-            rows = conn.execute(query).fetchall()
+            reports = conn.execute(
+                '''SELECT r.*, d.name AS driver_name 
+                   FROM reports r 
+                   JOIN drivers d ON r.driver_id = d.id 
+                   ORDER BY r.created_at DESC'''
+            ).fetchall()
             conn.close()
-            return [dict(row) for row in rows]
-        except sqlite3.Error as e:
-            print(f"Error getting all reports: {e}")
+            return [dict(row) for row in reports]
+        except Exception as e:
+            print(f"Error in Report.get_all: {e}")
             return []
-        
+            
     @staticmethod
     def get_by_route(route_id):
         """
-        取得特定公車路線的所有回報記錄，依建立時間降冪排序，並關聯司機姓名。
+        根據路線 ID 取得所有回報記錄，包含司機姓名，依時間降序排列。
         
-        Args:
-            route_id (str): 公車路線代號
-            
-        Returns:
-            list: 該路線的回報記錄清單，若失敗則傳回空清單
+        :param route_id: 路線 ID (str)
+        :return: 該路線的回報記錄字典列表 (list of dict)
         """
         try:
             conn = get_db_connection()
-            query = '''
-                SELECT r.*, d.name as driver_name 
-                FROM reports r 
-                LEFT JOIN drivers d ON r.driver_id = d.id 
-                WHERE r.route_id = ? 
-                ORDER BY r.created_at DESC
-            '''
-            reports = conn.execute(query, (route_id,)).fetchall()
+            reports = conn.execute(
+                '''SELECT r.*, d.name AS driver_name 
+                   FROM reports r 
+                   JOIN drivers d ON r.driver_id = d.id 
+                   WHERE r.route_id = ? 
+                   ORDER BY r.created_at DESC''', 
+                (route_id,)
+            ).fetchall()
             conn.close()
             return [dict(row) for row in reports]
-        except sqlite3.Error as e:
-            print(f"Error getting reports by route {route_id}: {e}")
+        except Exception as e:
+            print(f"Error in Report.get_by_route: {e}")
             return []
 
     @staticmethod
-    def update(report_id, data):
+    def update(report_id, data=None, **kwargs):
         """
-        更新指定 ID 的回報記錄。
+        更新回報記錄。
         
-        Args:
-            report_id (int): 回報 ID
-            data (dict): 包含要更新之欄位的字典 (e.g., 'status', 'route_id', 'latitude', 'longitude')
-            
-        Returns:
-            bool: 更新成功傳回 True，失敗傳回 False
+        :param report_id: 欲更新的報告 ID (int)
+        :param data: 字典型態的資料，可包含 'status'
+        :param kwargs: 關鍵字引數，相容原本的參數傳遞方式 (status)
+        :return: 是否更新成功 (bool)
         """
+        if data is None:
+            data = kwargs
+            
+        status = data.get('status')
+        
         try:
             conn = get_db_connection()
-            fields = []
-            values = []
-            allowed_fields = ('driver_id', 'route_id', 'status', 'latitude', 'longitude')
-            for key, val in data.items():
-                if key in allowed_fields:
-                    fields.append(f"{key} = ?")
-                    values.append(val)
-            
-            if not fields:
-                conn.close()
-                return False
-                
-            values.append(report_id)
-            query = f"UPDATE reports SET {', '.join(fields)} WHERE id = ?"
-            conn.execute(query, values)
+            conn.execute('UPDATE reports SET status = ? WHERE id = ?', (status, report_id))
             conn.commit()
             conn.close()
             return True
-        except sqlite3.Error as e:
-            print(f"Error updating report {report_id}: {e}")
+        except Exception as e:
+            print(f"Error in Report.update: {e}")
             return False
 
     @staticmethod
     def delete(report_id):
         """
-        刪除指定 ID 的回報記錄。
+        刪除回報記錄。
         
-        Args:
-            report_id (int): 回報 ID
-            
-        Returns:
-            bool: 刪除成功傳回 True，失敗傳回 False
+        :param report_id: 欲刪除的報告 ID (int)
+        :return: 是否刪除成功 (bool)
         """
         try:
             conn = get_db_connection()
@@ -172,6 +157,6 @@ class Report:
             conn.commit()
             conn.close()
             return True
-        except sqlite3.Error as e:
-            print(f"Error deleting report {report_id}: {e}")
+        except Exception as e:
+            print(f"Error in Report.delete: {e}")
             return False

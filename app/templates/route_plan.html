@@ -1,73 +1,104 @@
 {% extends "base.html" %}
 
-{% block title %}轉乘規劃 - 台中等公車2.0{% endblock %}
+{% block title %}轉乘規劃 - 台中等公車 2.0{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-5 mb-4">
-        <div class="glass-panel p-4">
-            <h4 class="fw-bold mb-4"><span class="gradient-text"><i class="fa-solid fa-map-location-dot me-2"></i> 規劃您的通勤路線</span></h4>
+<div class="row">
+    <div class="col-12 mb-4">
+        <a href="{{ url_for('main.index') }}" class="btn btn-glass">
+            <i class="fas fa-arrow-left me-2"></i>返回首頁
+        </a>
+    </div>
+
+    <!-- Left side: Route Query Form -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass-card p-4">
+            <h3 class="text-white fw-bold mb-4"><i class="fas fa-route text-gradient me-2"></i>路線規劃</h3>
+            
             <form action="{{ url_for('main.route_plan') }}" method="GET">
                 <div class="mb-3">
-                    <label for="start-input" class="form-label text-secondary small">起點站牌/地標</label>
-                    <input type="text" name="start" id="start-input" class="form-control input-custom" placeholder="請輸入起點 (如：臺中車站)" value="{{ start }}" required>
+                    <label for="start" class="form-label text-white fw-bold">起點</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-map-marker-alt text-success"></i></span>
+                        <input type="text" id="start" name="start" value="{{ start or '' }}" class="form-control glass-input" placeholder="例如：台中車站、逢甲大學..." required>
+                    </div>
                 </div>
+                
                 <div class="mb-4">
-                    <label for="end-input" class="form-label text-secondary small">終點站牌/地標</label>
-                    <input type="text" name="end" id="end-input" class="form-control input-custom" placeholder="請輸入終點 (如：靜宜大學)" value="{{ end }}" required>
+                    <label for="end" class="form-label text-white fw-bold">終點</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-secondary border-opacity-20 text-muted"><i class="fas fa-map-marker-alt text-danger"></i></span>
+                        <input type="text" id="end" name="end" value="{{ end or '' }}" class="form-control glass-input" placeholder="例如：一中街、靜宜大學..." required>
+                    </div>
                 </div>
+                
                 <button type="submit" class="btn btn-gradient w-100 py-3">
-                    <i class="fa-solid fa-compass me-2"></i> 開始計算最優路線
+                    <i class="fas fa-search-location me-2"></i>規劃最佳路線
                 </button>
             </form>
         </div>
     </div>
-    
-    <div class="col-lg-7">
-        <div class="glass-panel p-4 h-100">
-            <h4 class="fw-bold mb-4"><span class="gradient-text"><i class="fa-solid fa-signs-post me-2"></i> 推薦轉乘方案</span></h4>
-            
-            {% if plans %}
-                <div class="accordion accordion-dark" id="planAccordion">
-                    {% for plan in plans %}
-                        <div class="accordion-item bg-transparent border-secondary mb-3 glass-panel">
-                            <h2 class="accordion-header" id="heading-{{ loop.index }}">
-                                <button class="accordion-button bg-transparent text-light fw-bold {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}" aria-expanded="{% if loop.first %}true{% endif %}" aria-controls="collapse-{{ loop.index }}">
-                                    <div class="d-flex justify-content-between align-items-center w-100 pe-3">
-                                        <div>
-                                            <span class="badge bg-info me-2">{{ plan.method }}</span>
-                                            <span>{{ plan.route }}</span>
-                                        </div>
-                                        <span class="text-info">{{ plan.duration }}</span>
-                                    </div>
-                                </button>
-                            </h2>
-                            <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#planAccordion">
-                                <div class="accordion-body text-secondary">
-                                    <div class="d-flex justify-content-between mb-3 text-muted small">
-                                        <span>票價：<strong class="text-light">{{ plan.fare }}</strong></span>
-                                        <span>轉乘次數：<strong class="text-light">0 次</strong></span>
-                                    </div>
-                                    <ol class="list-group list-group-numbered list-group-flush bg-transparent">
-                                        {% for step in plan.steps %}
-                                            <li class="list-group-item bg-transparent text-light border-0 ps-0 mb-2">
-                                                {{ step }}
-                                            </li>
+
+    <!-- Right side: Planning Results -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4 h-100">
+            <h4 class="text-white fw-bold mb-4">
+                {% if start and end %}
+                    從 <span class="text-gradient">{{ start }}</span> 到 <span class="text-gradient">{{ end }}</span> 的規劃結果
+                {% else %}
+                    轉乘規劃結果
+                {% endif %}
+            </h4>
+
+            {% if results %}
+                <div class="row">
+                    {% for result in results %}
+                        <div class="col-12 mb-4">
+                            <div class="glass-card p-4 border border-secondary border-opacity-15">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                                    <h5 class="text-white mb-0 fw-bold">{{ result.summary }}</h5>
+                                    <span class="badge bg-indigo bg-opacity-20 text-gradient fs-6 px-3 py-2 border border-primary border-opacity-25">
+                                        <i class="far fa-clock me-1"></i>{{ result.duration }}
+                                    </span>
+                                </div>
+                                
+                                <div class="mt-4">
+                                    <div class="position-relative ps-4" style="border-left: 2px dashed rgba(255, 255, 255, 0.15); margin-left: 10px;">
+                                        {% for step in result.steps %}
+                                            <div class="mb-4 position-relative">
+                                                <!-- Custom icons for step milestones -->
+                                                <span class="position-absolute" style="left: -33px; top: 0; background: var(--bg-secondary); border-radius: 50%; padding: 4px; border: 1px solid rgba(255,255,255,0.2);">
+                                                    {% if loop.first %}
+                                                        <i class="fas fa-walking text-success fa-fw"></i>
+                                                    {% elif loop.last %}
+                                                        <i class="fas fa-flag-checkered text-danger fa-fw"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-bus-alt text-indigo fa-fw"></i>
+                                                    {% endif %}
+                                                </span>
+                                                <div class="text-white fw-bold">{{ step }}</div>
+                                                {% if not loop.last %}
+                                                    <div class="text-muted small mt-1">預估步行或乘車時間 (正常行駛)</div>
+                                                {% endif %}
+                                            </div>
                                         {% endfor %}
-                                    </ol>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     {% endfor %}
                 </div>
-            {% else %}
+            {% elif start and end %}
                 <div class="text-center py-5 text-muted">
-                    <i class="fa-solid fa-route fs-1 text-secondary mb-3"></i>
-                    {% if start or end %}
-                        <p>找不到對應的轉乘路徑，請嘗試輸入更通俗的站名 (如：臺中車站、秋紅谷、東海大學)。</p>
-                    {% else %}
-                        <p>請於左側輸入起點與終點站名稱，系統將自動計算多個轉乘方案。</p>
-                    {% endif %}
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-secondary-color"></i>
+                    <p>抱歉，無法為您規劃此段路線。</p>
+                    <p class="small">請確認輸入的地點是否正確，或是嘗試其他鄰近站名。</p>
+                </div>
+            {% else %}
+                <div class="text-center py-5 text-muted d-flex flex-column align-items-center justify-content-center h-75">
+                    <i class="fas fa-map-signs fa-4x mb-3 text-secondary-color" style="opacity: 0.3;"></i>
+                    <p class="fs-5">請在左側輸入起訖點，以取得公車搭乘規劃。</p>
+                    <p class="small text-muted">系統會為您計算多種轉乘方案，並列出各步驟詳情。</p>
                 </div>
             {% endif %}
         </div>

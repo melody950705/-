@@ -1,64 +1,62 @@
 {% extends "base.html" %}
 
-{% block title %}路線 {{ route_id }} 即時動態 - 台中等公車2.0{% endblock %}
+{% block title %}{{ route_id }} 路公車即時動態 - 台中等公車 2.0{% endblock %}
 
 {% block content %}
 <div class="row">
-    <!-- Top Route Info Panel -->
+    <!-- Sidebar or Back Navigation -->
     <div class="col-12 mb-4">
-        <div class="glass-panel p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <div>
-                <span class="badge bg-info mb-2">即時追蹤中</span>
-                <h2 class="fw-bold mb-0">台中市公車 <span class="gradient-text">{{ route_id }}</span> 路</h2>
-                <p class="text-secondary small mb-0 mt-1">
-                    <span id="route-direction-text">往 靜宜大學 方向</span> | 資料來源：TDX 開放資料與司機即時通報
-                </p>
-            </div>
-            <div class="text-md-end">
-                <button onclick="fetchLiveStatus()" class="btn btn-outline-info rounded-pill px-4">
-                    <i class="fa-solid fa-arrows-rotate me-2" id="refresh-icon"></i> 手動更新
-                </button>
-            </div>
-        </div>
+        <a href="{{ url_for('main.index') }}" class="btn btn-glass">
+            <i class="fas fa-arrow-left me-2"></i>返回首頁
+        </a>
     </div>
 
-    <!-- Live Driver Reports for this Route -->
-    <div class="col-lg-4 mb-4">
-        <div class="glass-panel p-4 mb-4">
-            <h5 class="fw-bold mb-3 d-flex align-items-center">
-                <i class="fa-solid fa-bullhorn text-warning me-2"></i> 司機即時通報
-            </h5>
-            <div id="driver-alerts-container">
-                <div class="text-center py-4 text-muted small">
-                    <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-                    <p class="mb-0">載入通報資訊中...</p>
+    <!-- Route Information Header -->
+    <div class="col-lg-8 mb-4">
+        <div class="glass-card p-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                <div>
+                    <span class="badge bg-primary bg-opacity-20 text-gradient font-weight-bold fs-6 border border-primary border-opacity-20 px-3 py-1 mb-2">
+                        即時動態
+                    </span>
+                    <h1 class="text-white fw-bold mb-0">{{ route_id }} 路公車</h1>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-glass direction-tab active px-4 py-2" data-direction="0">
+                        <i class="fas fa-sign-in-alt me-1"></i>去程
+                    </button>
+                    <button class="btn btn-glass direction-tab px-4 py-2" data-direction="1">
+                        <i class="fas fa-sign-out-alt me-1"></i>返程
+                    </button>
                 </div>
             </div>
         </div>
-        
-        <div class="glass-panel p-4">
-            <h5 class="fw-bold mb-3">
-                <i class="fa-solid fa-circle-question text-info me-2"></i> 使用說明
-            </h5>
-            <ul class="text-secondary small ps-3 mb-0">
-                <li class="mb-2">網頁將每隔 10 秒自動更新一次公車預估到站時間。</li>
-                <li class="mb-2">如果司機回報路況，會在此頁面頂部以黃色或紅色看板即時標註。</li>
-                <li class="mb-2">出現車牌編號（例如 EAA-123）代表該公車正朝該站駛去。</li>
-            </ul>
+    </div>
+
+    <!-- Right Sidebar - Route reports and information -->
+    <div class="col-lg-4 mb-4">
+        <div class="glass-card p-4 h-100">
+            <h4 class="text-white mb-3 fw-bold"><i class="fas fa-bullhorn text-gradient me-2"></i>即時路況/特報</h4>
+            <div id="report-badges">
+                <div class="text-muted small py-2">
+                    <i class="fas fa-spinner fa-spin me-1"></i>正在載入司機回報路況...
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Timeline of Stops -->
-    <div class="col-lg-8 mb-4">
-        <div class="glass-panel p-4">
-            <h5 class="fw-bold mb-4 d-flex align-items-center">
-                <i class="fa-solid fa-list-ol text-info me-2"></i> 沿途站點與估計時間
-            </h5>
+    <!-- Main Timeline Container -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom border-secondary border-opacity-10 pb-3">
+                <h4 class="text-white fw-bold mb-0">路線沿途站牌</h4>
+                <span class="text-muted small"><i class="fas fa-sync-alt fa-spin text-indigo me-1"></i>每 10 秒自動重新整理</span>
+            </div>
             
-            <div class="timeline-container" id="stops-timeline">
+            <div id="bus-timeline" class="timeline-container">
                 <div class="text-center py-5 text-muted">
-                    <div class="spinner-border text-info mb-3" role="status"></div>
-                    <p>正在連線至台中巴士動態系統...</p>
+                    <i class="fas fa-spinner fa-spin fa-3x mb-3 text-gradient"></i>
+                    <p>正在載入即時動態資料...</p>
                 </div>
             </div>
         </div>
@@ -68,138 +66,32 @@
 
 {% block extra_js %}
 <script>
-const routeId = "{{ route_id }}";
-
-function fetchLiveStatus() {
-    const refreshIcon = document.getElementById("refresh-icon");
-    if (refreshIcon) refreshIcon.classList.add("fa-spin");
+    // Inject session favorites from Flask into the client-side list
+    const favoritesList = {{ session.get('favorites', [])|tojson }};
+    const routeId = "{{ route_id }}";
     
-    fetch(`/api/bus/${routeId}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === "success") {
-                renderAlerts(data.reports);
-                renderTimeline(data.stops);
-            } else {
-                showErrorState("無法獲取即時資訊");
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            showErrorState("伺服器連線失敗");
-        })
-        .finally(() => {
-            if (refreshIcon) {
-                setTimeout(() => {
-                    refreshIcon.classList.remove("fa-spin");
-                }, 500);
-            }
+    // Tab event listener for toggling directions
+    document.querySelectorAll('.direction-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.direction-tab').forEach(t => t.classList.remove('active', 'btn-gradient'));
+            document.querySelectorAll('.direction-tab').forEach(t => t.classList.add('btn-glass'));
+            
+            tab.classList.remove('btn-glass');
+            tab.classList.add('active', 'btn-gradient');
+            
+            // Re-render immediately
+            fetchBusStatus(routeId, favoritesList);
         });
-}
-
-function renderAlerts(reports) {
-    const container = document.getElementById("driver-alerts-container");
-    if (!container) return;
-    
-    if (!reports || reports.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4 text-muted small">
-                <i class="fa-solid fa-circle-check text-success fs-3 mb-2"></i>
-                <p class="mb-0">目前此路線無任何異常回報</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '<div class="d-flex flex-column gap-2">';
-    reports.forEach(report => {
-        let statusBadgeClass = "bg-warning";
-        let statusIcon = "fa-triangle-exclamation";
-        
-        if (report.status === "故障") {
-            statusBadgeClass = "bg-danger";
-            statusIcon = "fa-solid fa-screwdriver-wrench";
-        } else if (report.status === "滿載") {
-            statusBadgeClass = "bg-danger";
-            statusIcon = "fa-solid fa-users";
-        } else if (report.status === "延誤") {
-            statusBadgeClass = "bg-warning text-dark";
-            statusIcon = "fa-solid fa-clock";
-        }
-        
-        html += `
-            <div class="p-3 rounded border border-secondary" style="background: rgba(255, 255, 255, 0.02)">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <span class="badge ${statusBadgeClass}"><i class="${statusIcon} me-1"></i> ${report.status}</span>
-                    <small class="text-muted">${report.created_at.split(' ')[1] || report.created_at}</small>
-                </div>
-                <p class="mb-0 text-light small fw-bold">司機 ${report.driver_name || '王大明'} 通報</p>
-            </div>
-        `;
     });
-    html += '</div>';
-    container.innerHTML = html;
-}
 
-function renderTimeline(stops) {
-    const container = document.getElementById("stops-timeline");
-    if (!container) return;
+    // Start polling automatically
+    initBusStatusPolling(routeId, favoritesList);
     
-    if (!stops || stops.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-4 text-muted">
-                <p>查無站牌資料</p>
-            </div>
-        `;
-        return;
-    }
-    
-    let html = '';
-    stops.forEach(stop => {
-        const isArriving = stop.display_time === "即將到站" || stop.display_time === "將到站 (1分)";
-        const isActive = stop.plate_nbr !== "";
-        
-        // Define styling classes
-        let statusClass = "status-waiting";
-        if (stop.display_time === "即將到站") {
-            statusClass = "status-arriving";
-        } else if (stop.display_time.includes("分")) {
-            statusClass = "status-minutes";
+    // Clean up timer if user leaves the page
+    window.addEventListener('beforeunload', () => {
+        if (busStatusTimer) {
+            clearInterval(busStatusTimer);
         }
-        
-        html += `
-            <div class="timeline-item d-flex justify-content-between align-items-center ${isActive ? 'active' : ''}">
-                <div class="timeline-dot"></div>
-                <div class="flex-grow-1 ps-2">
-                    <span class="fw-bold text-light">${stop.stop_name}</span>
-                    ${isActive ? `<span class="bus-badge"><i class="fa-solid fa-bus me-1"></i> ${stop.plate_nbr}</span>` : ''}
-                </div>
-                <div>
-                    <span class="badge-status ${statusClass}">${stop.display_time}</span>
-                </div>
-            </div>
-        `;
     });
-    container.innerHTML = html;
-}
-
-function showErrorState(msg) {
-    const container = document.getElementById("stops-timeline");
-    if (container) {
-        container.innerHTML = `
-            <div class="text-center py-4 text-danger">
-                <i class="fa-solid fa-circle-exclamation fs-3 mb-2"></i>
-                <p>${msg}，請手動更新或重新整理網頁。</p>
-            </div>
-        `;
-    }
-}
-
-// Initial fetch
-document.addEventListener("DOMContentLoaded", function() {
-    fetchLiveStatus();
-    // Poll every 10 seconds
-    setInterval(fetchLiveStatus, 10000);
-});
 </script>
 {% endblock %}
