@@ -2,6 +2,9 @@ from flask import Blueprint, render_template, jsonify, current_app
 import requests
 import random
 from ..models.report import Report
+from app.utils.tdx import TDXClient
+
+tdx = TDXClient()
 
 bus_bp = Blueprint('bus', __name__)
 

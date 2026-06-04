@@ -3,6 +3,7 @@ from werkzeug.security import check_password_hash
 from . import driver_bp
 from ..models.driver import Driver
 from ..models.report import Report
+from werkzeug.security import check_password_hash
 
 @driver_bp.route('/login', methods=['GET'])
 def login_page():
