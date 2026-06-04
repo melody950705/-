@@ -128,3 +128,53 @@ def delete_favorite():
         flash(error_msg, 'warning')
         
     return redirect(request.referrer or url_for('main.index'))
+
+@main_bp.route('/api/nearby-stops', methods=['GET'])
+def get_nearby_stops():
+    """
+    [F-05] 附近站牌與公車搜尋 API
+    根據使用者傳入的經緯度 (lat, lng)，計算距離並回傳最接近的公車站點。
+    """
+    try:
+        lat_val = request.args.get('lat')
+        lng_val = request.args.get('lng')
+        
+        # 預設位置（台中市政府附近）
+        lat = float(lat_val) if lat_val else 24.1625
+        lng = float(lng_val) if lng_val else 120.6472
+    except ValueError:
+        return jsonify({'status': 'error', 'message': '經緯度格式錯誤'}), 400
+
+    mock_stations = [
+        {"name": "科博館 (Botanical Garden)", "lat": 24.1558, "lng": 120.6653, "routes": ["300", "301", "303", "304"]},
+        {"name": "廣三SOGO (Kuang San SOGO)", "lat": 24.1556, "lng": 120.6616, "routes": ["300", "302", "305", "310"]},
+        {"name": "市政府 (Taichung City Hall)", "lat": 24.1625, "lng": 120.6472, "routes": ["300", "301", "305"]},
+        {"name": "新光/遠百 (Shin Kong/Top City)", "lat": 24.1645, "lng": 120.6425, "routes": ["300", "302", "310"]},
+        {"name": "秋紅谷 (Maple Garden)", "lat": 24.1668, "lng": 120.6384, "routes": ["300", "303", "304", "305"]},
+        {"name": "台中車站 (Taichung Station)", "lat": 24.1373, "lng": 120.6868, "routes": ["300", "301", "302", "305", "310"]},
+        {"name": "逢甲大學 (Tunghai Univ. / Fengjia)", "lat": 24.1798, "lng": 120.6462, "routes": ["5", "25", "35"]},
+        {"name": "靜宜大學 (Providence Univ.)", "lat": 24.2268, "lng": 120.5791, "routes": ["300", "301", "305", "310"]}
+    ]
+    
+    import math
+    results = []
+    for station in mock_stations:
+        # 使用簡易經緯度歐氏距離換算 (北緯 24 度下，緯度 1 度約 111 公里，經度 1 度約 101 公里)
+        d_lat = (station["lat"] - lat) * 111000
+        d_lng = (station["lng"] - lng) * 101000
+        distance = int(math.sqrt(d_lat**2 + d_lng**2))
+        
+        results.append({
+            "name": station["name"],
+            "distance": distance,
+            "routes": station["routes"]
+        })
+        
+    # 依距離由近到遠排序，取前 4 個
+    results.sort(key=lambda x: x["distance"])
+    
+    return jsonify({
+        "status": "success",
+        "stops": results[:4]
+    })
+

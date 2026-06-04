@@ -142,7 +142,7 @@ function formatEstimateTime(seconds, status) {
 
 async function fetchBusStatus(routeId, favoritesList = []) {
     try {
-        const response = await fetch(`/bus/api/status/${routeId}`);
+        const response = await fetch(`/api/bus/${routeId}`);
         if (!response.ok) throw new Error('API response error');
         
         const data = await response.json();
@@ -367,6 +367,92 @@ function fetchDriverLocation() {
         );
     } else {
         locStatus.innerHTML = '<i class="fas fa-exclamation-circle text-warning me-1"></i>瀏覽器不支援 GPS 位置讀取';
+    }
+}
+
+// Nearby Stops finder for passengers
+async function findNearbyStops() {
+    const section = document.getElementById('nearby-stops-section');
+    const loading = document.getElementById('nearby-stops-loading');
+    const list = document.getElementById('nearby-stops-list');
+    
+    if (!section || !loading || !list) return;
+    
+    // Show section and loading, hide previous list
+    section.classList.remove('d-none');
+    loading.classList.remove('d-none');
+    list.innerHTML = '';
+    
+    // Helper to fetch and render
+    const fetchStops = async (lat = '', lng = '') => {
+        try {
+            const url = (lat && lng) ? `/api/nearby-stops?lat=${lat}&lng=${lng}` : '/api/nearby-stops';
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('API response error');
+            const data = await response.json();
+            
+            loading.classList.add('d-none');
+            
+            if (data.status === 'success' && data.stops && data.stops.length > 0) {
+                data.stops.forEach(stop => {
+                    // Create cards
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 mb-3';
+                    
+                    let routeTags = stop.routes.map(r => 
+                        `<a href="/bus/${r}" class="badge bg-primary bg-opacity-20 text-gradient text-decoration-none px-2 py-1 me-1 mb-1 border border-primary border-opacity-20 font-weight-bold">${r}路</a>`
+                    ).join('');
+                    
+                    col.innerHTML = `
+                        <div class="glass-card p-3 h-100 d-flex flex-column justify-content-between" style="border-left: 3px solid var(--accent-pink);">
+                            <div>
+                                <h6 class="text-white fw-bold mb-1">${stop.name}</h6>
+                                <p class="text-muted small mb-2"><i class="fas fa-walking me-1 text-pink"></i> 距離約 ${stop.distance} 公尺</p>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted d-block mb-1">行經路線：</small>
+                                <div class="d-flex flex-wrap">
+                                    ${routeTags}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(col);
+                });
+            } else {
+                list.innerHTML = `
+                    <div class="col-12 text-center py-3 text-muted">
+                        <i class="fas fa-exclamation-circle me-1"></i> 找不到附近的公車站牌。
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error fetching nearby stops:', error);
+            loading.classList.add('d-none');
+            showToast('取得附近站牌失敗，請稍後再試。', 'danger');
+            list.innerHTML = `
+                <div class="col-12 text-center py-3 text-danger">
+                    <i class="fas fa-exclamation-triangle me-1"></i> 連線伺服器失敗
+                </div>
+            `;
+        }
+    };
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                fetchStops(position.coords.latitude, position.coords.longitude);
+            },
+            (error) => {
+                console.warn('Geolocation denied or failed, using default center:', error);
+                showToast('無法取得您的精確定位，改以預設台中市區中心搜尋。', 'info');
+                fetchStops();
+            },
+            { enableHighAccuracy: true, timeout: 5000 }
+        );
+    } else {
+        showToast('您的瀏覽器不支援定位，已使用預設台中市區中心搜尋。', 'info');
+        fetchStops();
     }
 }
 

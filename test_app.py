@@ -172,5 +172,24 @@ class TaichungBusTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 302)
         self.assertIn('/driver/login', res.headers.get('Location'))
 
+    def test_api_nearby_stops(self):
+        """
+        Test /api/nearby-stops route to ensure it returns 200 and the stops list.
+        """
+        # Test without parameters (falls back to default)
+        res = self.client.get('/api/nearby-stops')
+        self.assertEqual(res.status_code, 200)
+        json_data = res.get_json()
+        self.assertEqual(json_data["status"], "success")
+        self.assertIn("stops", json_data)
+        self.assertTrue(len(json_data["stops"]) > 0)
+        
+        # Test with parameters
+        res = self.client.get('/api/nearby-stops?lat=24.1373&lng=120.6868')  # Taichung Station
+        self.assertEqual(res.status_code, 200)
+        json_data = res.get_json()
+        self.assertEqual(json_data["status"], "success")
+        self.assertEqual(json_data["stops"][0]["name"], "台中車站 (Taichung Station)")
+
 if __name__ == '__main__':
     unittest.main()

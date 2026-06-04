@@ -100,7 +100,10 @@ def bus_status(route_id):
     """
     return render_template('bus_status.html', route_id=route_id)
 
+from app.routes.main import main_bp
+
 @bus_bp.route('/api/status/<route_id>', methods=['GET'])
+@main_bp.route('/api/bus/<route_id>', methods=['GET'])
 def api_bus_status(route_id):
     """
     取得即時動態 API
@@ -136,6 +139,7 @@ def api_bus_status(route_id):
         
     # 合併回傳
     return jsonify({
+        'status': 'success',
         'route_id': route_id,
         'stops': bus_stops,
         'reports': reports

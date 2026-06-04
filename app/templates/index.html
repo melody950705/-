@@ -11,13 +11,33 @@
         
         <!-- Search Form -->
         <div class="position-relative w-100 max-width-md mx-auto">
-            <div class="glass-card p-2 d-flex align-items-center">
-                <i class="fas fa-search text-muted ms-3 me-2"></i>
+            <div class="glass-card p-2 d-flex align-items-center gap-2">
+                <i class="fas fa-search text-muted ms-3 me-1"></i>
                 <input type="text" id="route-search" class="form-control bg-transparent border-0 text-white shadow-none" placeholder="輸入路線代號，如 300, 301..." autocomplete="off">
-                <button class="btn btn-gradient px-4" onclick="const val = document.getElementById('route-search').value.trim(); if(val) window.location.href = '/bus/' + val;">搜尋</button>
+                <button class="btn btn-gradient px-4 text-nowrap" onclick="const val = document.getElementById('route-search').value.trim(); if(val) window.location.href = '/bus/' + val;">搜尋</button>
+                <button class="btn btn-glass px-3 text-nowrap text-white" onclick="findNearbyStops()"><i class="fas fa-compass text-pink me-1"></i>附近站牌</button>
             </div>
             <!-- Suggestion Box -->
             <div id="search-suggestions" class="suggestion-list d-none text-start"></div>
+        </div>
+
+        <!-- Nearby Stops Section -->
+        <div id="nearby-stops-section" class="d-none mt-4 max-width-md mx-auto text-start">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom border-secondary border-opacity-20 pb-2">
+                    <h5 class="mb-0 text-white font-weight-bold"><i class="fas fa-location-arrow text-pink me-2"></i>目前位置附近的公車站</h5>
+                    <button class="btn btn-sm btn-glass text-muted" onclick="document.getElementById('nearby-stops-section').classList.add('d-none');" style="border: none; background: transparent; font-size: 1rem;"><i class="fas fa-times"></i></button>
+                </div>
+                <!-- Loading Spinner -->
+                <div id="nearby-stops-loading" class="text-center py-4 d-none">
+                    <i class="fas fa-spinner fa-spin text-pink fa-2x mb-2"></i>
+                    <p class="text-muted small mb-0">正在讀取 GPS 定位並搜尋附近站牌...</p>
+                </div>
+                <!-- Stop Cards Grid -->
+                <div id="nearby-stops-list" class="row">
+                    <!-- Dynamic stop cards go here -->
+                </div>
+            </div>
         </div>
     </div>
 </div>
