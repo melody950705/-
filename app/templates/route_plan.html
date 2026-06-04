@@ -55,31 +55,57 @@
                     {% for result in results %}
                         <div class="col-12 mb-4">
                             <div class="glass-card p-4 border border-secondary border-opacity-15">
+                                <!-- Option Title & Total Time -->
                                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-                                    <h5 class="text-white mb-0 fw-bold">{{ result.summary }}</h5>
+                                    <h5 class="text-white mb-0 fw-bold">{{ result.title }}</h5>
                                     <span class="badge bg-indigo bg-opacity-20 text-gradient fs-6 px-3 py-2 border border-primary border-opacity-25">
-                                        <i class="far fa-clock me-1"></i>{{ result.duration }}
+                                        <i class="far fa-clock me-1"></i>總計 {{ result.total_time }} 分鐘
                                     </span>
                                 </div>
                                 
+                                <!-- Detailed Durations Summary Row -->
+                                <div class="d-flex flex-wrap gap-2 mb-4">
+                                    <span class="badge bg-info bg-opacity-15 text-white border border-info border-opacity-20 px-3 py-2 rounded-pill">
+                                        <i class="fas fa-bus text-info me-1"></i>乘車：{{ result.bus_time }} 分鐘
+                                    </span>
+                                    <span class="badge bg-success bg-opacity-15 text-white border border-success border-opacity-20 px-3 py-2 rounded-pill">
+                                        <i class="fas fa-walking text-success me-1"></i>步行：{{ result.walk_time }} 分鐘
+                                    </span>
+                                    <span class="badge bg-secondary bg-opacity-15 text-white border border-secondary border-opacity-20 px-3 py-2 rounded-pill">
+                                        <i class="fas fa-random me-1 text-muted"></i>轉乘：{{ result.transfers }} 次
+                                    </span>
+                                </div>
+                                
+                                <!-- Timeline Steps -->
                                 <div class="mt-4">
                                     <div class="position-relative ps-4" style="border-left: 2px dashed rgba(255, 255, 255, 0.15); margin-left: 10px;">
-                                        {% for step in result.steps %}
+                                        {% for leg in result.legs %}
                                             <div class="mb-4 position-relative">
                                                 <!-- Custom icons for step milestones -->
-                                                <span class="position-absolute" style="left: -33px; top: 0; background: var(--bg-secondary); border-radius: 50%; padding: 4px; border: 1px solid rgba(255,255,255,0.2);">
-                                                    {% if loop.first %}
-                                                        <i class="fas fa-walking text-success fa-fw"></i>
-                                                    {% elif loop.last %}
-                                                        <i class="fas fa-flag-checkered text-danger fa-fw"></i>
+                                                <span class="position-absolute" style="left: -33px; top: 0; background: var(--bg-secondary); border-radius: 50%; padding: 4px; border: 1px solid rgba(255,255,255,0.2); width: 26px; height: 26px; display: flex; align-items: center; justify-content: center;">
+                                                    {% if leg.type == 'walk' %}
+                                                        <i class="fas fa-walking text-success fa-fw" style="font-size: 0.85rem;"></i>
                                                     {% else %}
-                                                        <i class="fas fa-bus-alt text-indigo fa-fw"></i>
+                                                        <i class="fas fa-bus-alt text-indigo fa-fw" style="font-size: 0.85rem;"></i>
                                                     {% endif %}
                                                 </span>
-                                                <div class="text-white fw-bold">{{ step }}</div>
-                                                {% if not loop.last %}
-                                                    <div class="text-muted small mt-1">預估步行或乘車時間 (正常行駛)</div>
-                                                {% endif %}
+                                                
+                                                <!-- Step description text -->
+                                                <div class="text-white fw-bold">
+                                                    {% if leg.type == 'walk' %}
+                                                        從 <span class="text-secondary-color">{{ leg.from }}</span> 步行至 <span class="text-secondary-color">{{ leg.to }}</span>
+                                                    {% else %}
+                                                        搭乘 <span class="text-gradient">{{ leg.name }}</span>（從 <span class="text-secondary-color">{{ leg.from }}</span> 至 <span class="text-secondary-color">{{ leg.to }}</span>）
+                                                    {% endif %}
+                                                </div>
+                                                
+                                                <!-- Leg metadata (Duration and Note) -->
+                                                <div class="text-muted small mt-1 d-flex flex-wrap gap-3 align-items-center">
+                                                    <span><i class="far fa-clock me-1"></i>時間：{{ leg.duration }} 分鐘</span>
+                                                    {% if leg.note %}
+                                                        <span class="text-secondary-color"><i class="fas fa-info-circle me-1"></i>{{ leg.note }}</span>
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                         {% endfor %}
                                     </div>

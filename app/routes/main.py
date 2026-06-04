@@ -1,6 +1,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
+from app.utils.tdx import TDXClient
 
 main_bp = Blueprint('main', __name__)
+tdx = TDXClient()
 
 @main_bp.route('/')
 def index():
@@ -22,27 +24,11 @@ def route_plan():
     results = None
     
     if start and end:
-        # 這裡未來可整合 TDX 轉乘規劃 API，目前回傳模擬規劃結果
-        results = [
-            {
-                'summary': '搭乘 300 路公車（預估 25 分鐘）',
-                'duration': '25 mins',
-                'steps': [
-                    f'從 {start} 步行至最近捷運站/公車站牌',
-                    '搭乘 300 路公車（方向：台中車站 -> 靜宜大學）',
-                    f'於目的地站牌下車，步行至 {end}'
-                ]
-            },
-            {
-                'summary': '搭乘 301 路公車（預估 30 分鐘，步行較少）',
-                'duration': '30 mins',
-                'steps': [
-                    f'從 {start} 步行至公車站牌',
-                    '搭乘 301 路公車',
-                    f'到達目的地 {end}'
-                ]
-            }
-        ]
+        results = tdx.get_route_plan(start, end)
+        # 為了前端便利，先在後端計算並添加 bus_time
+        if results:
+            for r in results:
+                r['bus_time'] = max(0, r.get('total_time', 0) - r.get('walk_time', 0))
         
     return render_template('route_plan.html', start=start, end=end, results=results)
 

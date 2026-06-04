@@ -151,6 +151,13 @@ class TaichungBusTestCase(unittest.TestCase):
         res = self.client.get('/route-plan')
         self.assertEqual(res.status_code, 200)
         
+        # Route plan page with parameters
+        res = self.client.get('/route-plan?start=台中車站&end=逢甲大學')
+        self.assertEqual(res.status_code, 200)
+        html_data = res.get_data(as_text=True)
+        self.assertIn("乘車：", html_data)
+        self.assertIn("步行：", html_data)
+        
         # Specific route status page
         res = self.client.get('/bus/300')
         self.assertEqual(res.status_code, 200)
