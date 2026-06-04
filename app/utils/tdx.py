@@ -1,3 +1,5 @@
+import os
+import json
 import requests
 import random
 from config import Config
@@ -33,6 +35,66 @@ class TDXClient:
         if token:
             return {"authorization": f"Bearer {token}"}
         return {}
+
+    def get_mock_all_routes(self):
+        """
+        從本地 routes.json 載入所有模擬/預設公車路線
+        """
+        try:
+            # 取得 app/ 目錄的絕對路徑
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            json_path = os.path.join(base_dir, 'static', 'data', 'routes.json')
+            if os.path.exists(json_path):
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"Error loading routes.json: {e}")
+        return [
+            {"id": "300", "name": "300路", "departure": "台中車站", "destination": "靜宜大學", "desc": "300路：台中車站 - 靜宜大學 (優化專用道)"},
+            {"id": "301", "name": "301路", "departure": "新民高中", "destination": "中興大學", "desc": "301路: 新民高中 - 中興大學"}
+        ]
+
+    def get_all_routes(self):
+        """
+        取得台中市所有公車路線。優先從 TDX API 取得，失敗或無金鑰則讀取本地 routes.json
+        """
+        headers = self.get_headers()
+        if not headers:
+            return self.get_mock_all_routes()
+            
+        url = "https://tdx.transportdata.tw/api/basic/v2/Bus/Route/City/Taichung?$format=JSON"
+        try:
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                routes = []
+                for item in data:
+                    route_id = item.get("RouteID")
+                    if not route_id:
+                        continue
+                    name_zh = item.get("RouteName", {}).get("Zh_tw", "")
+                    dep_zh = item.get("DepartureStopNameZh", "")
+                    dest_zh = item.get("DestinationStopNameZh", "")
+                    routes.append({
+                        "id": route_id,
+                        "name": name_zh if name_zh.endswith("路") or "路" in name_zh else f"{name_zh}路",
+                        "departure": dep_zh,
+                        "destination": dest_zh,
+                        "desc": f"{name_zh}路：{dep_zh} - {dest_zh}" if dep_zh and dest_zh else name_zh
+                    })
+                seen = set()
+                unique_routes = []
+                for r in routes:
+                    if r["id"] not in seen:
+                        seen.add(r["id"])
+                        unique_routes.append(r)
+                unique_routes.sort(key=lambda x: x["id"])
+                return unique_routes
+        except Exception as e:
+            print(f"Error fetching all routes from TDX: {e}")
+            
+        return self.get_mock_all_routes()
+
 
     def get_route_plan(self, start, end):
         """
@@ -214,8 +276,20 @@ class TDXClient:
             "靜宜大學 (Providence University)"
         ]
 
+        # 尋找是否在本地 routes.json 中
+        all_routes = self.get_mock_all_routes()
+        route_info = next((r for r in all_routes if str(r["id"]) == str(route_id)), None)
+
         if str(route_id) == "300":
             stops = stops_300
+        elif route_info and route_info.get("departure") and route_info.get("destination"):
+            dep = route_info["departure"]
+            dest = route_info["destination"]
+            # 為了讓特定路線的站牌順序固定，使用 hash(route_id) 作為隨機種子
+            random.seed(hash(route_id))
+            middle_pool = ["中正路口", "民權路口", "公益路口", "五權路口", "美村路口", "科博館", "忠明國小", "市政府", "新光三越", "朝馬", "秋紅谷", "逢甲大學", "東海大學", "嶺東科大", "一中商圈", "中興大學", "太原車站", "大慶車站", "豐原車站", "大甲火車站"]
+            selected_middle = random.sample(middle_pool, min(5, len(middle_pool)))
+            stops = [dep] + selected_middle + [dest]
         else:
             # 針對其他路線動態隨機生成站牌
             random.seed(hash(route_id))
@@ -229,6 +303,7 @@ class TDXClient:
                 "西區區公所",
                 f"{route_id}路終點站"
             ]
+
 
         # 隨機但具有邏輯性地產生 ETA 時間 (分流方向)
         eta_data = []
