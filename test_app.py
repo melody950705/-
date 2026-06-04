@@ -139,6 +139,33 @@ class TaichungBusTestCase(unittest.TestCase):
         self.assertTrue(del_success)
         self.assertIsNone(Report.get_by_id(report_id))
 
+    def test_report_normal_override(self):
+        """
+        Test that reporting "正常行駛" clears/overwrites previous reports for that route.
+        """
+        drv_id = Driver.create({
+            "username": "driver_ovr",
+            "password_hash": "dummy_hash",
+            "name": "陳司機"
+        })
+        
+        # Create abnormal reports on route "300"
+        Report.create(driver_id=drv_id, route_id="300", status="滿載")
+        Report.create(driver_id=drv_id, route_id="300", status="車多延誤")
+        
+        # Assert they are both there
+        reports = Report.get_by_route("300")
+        self.assertEqual(len(reports), 2)
+        
+        # Now report "正常行駛"
+        Report.create(driver_id=drv_id, route_id="300", status="正常行駛")
+        
+        # Assert previous reports are deleted, and only "正常行駛" remains
+        reports_after = Report.get_by_route("300")
+        self.assertEqual(len(reports_after), 1)
+        self.assertEqual(reports_after[0]["status"], "正常行駛")
+        self.assertEqual(reports_after[0]["driver_name"], "陳司機")
+
     def test_http_routes(self):
         """
         Test various routes to ensure they return the expected status codes.

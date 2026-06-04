@@ -159,11 +159,13 @@ async function fetchBusStatus(routeId, favoritesList = []) {
                 data.reports.forEach(report => {
                     const timeStr = report.created_at ? report.created_at.substring(11, 16) : '';
                     const badge = document.createElement('div');
-                    badge.className = 'glass-card p-3 mb-2 border-danger d-flex justify-content-between align-items-center';
-                    badge.style.borderLeft = '4px solid var(--accent-pink)';
                     
                     let statusColor = 'text-warning';
                     let icon = 'fa-exclamation-circle';
+                    let borderClass = 'border-danger';
+                    let leftBorderColor = 'var(--accent-pink)';
+                    let bgOpacityClass = 'bg-danger';
+                    
                     if (report.status.includes('延誤')) {
                         statusColor = 'text-warning';
                         icon = 'fa-clock';
@@ -173,11 +175,20 @@ async function fetchBusStatus(routeId, favoritesList = []) {
                     } else if (report.status.includes('事故') || report.status.includes('故障')) {
                         statusColor = 'text-danger';
                         icon = 'fa-times-circle';
+                    } else if (report.status.includes('正常')) {
+                        statusColor = 'text-success';
+                        icon = 'fa-check-circle';
+                        borderClass = 'border-success';
+                        leftBorderColor = '#198754';
+                        bgOpacityClass = 'bg-success';
                     }
+                    
+                    badge.className = `glass-card p-3 mb-2 ${borderClass} d-flex justify-content-between align-items-center`;
+                    badge.style.borderLeft = `4px solid ${leftBorderColor}`;
                     
                     badge.innerHTML = `
                         <div class="d-flex align-items-center gap-3">
-                            <div class="bg-danger bg-opacity-20 p-2 rounded-circle">
+                            <div class="${bgOpacityClass} bg-opacity-20 p-2 rounded-circle">
                                 <i class="fas ${icon} ${statusColor} fa-lg"></i>
                             </div>
                             <div>

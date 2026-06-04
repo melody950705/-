@@ -43,6 +43,11 @@ class Report:
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
+            
+            # 如果回報狀態是「正常行駛」，先刪除該路線的所有舊回報記錄，進行覆蓋
+            if status == '正常行駛':
+                cursor.execute('DELETE FROM reports WHERE route_id = ?', (route_id,))
+                
             cursor.execute(
                 '''INSERT INTO reports (driver_id, route_id, status, latitude, longitude) 
                    VALUES (?, ?, ?, ?, ?)''',
