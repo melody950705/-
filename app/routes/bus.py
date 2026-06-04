@@ -66,7 +66,7 @@ def get_mock_bus_data(route_id):
         estimate_time = random.randint(30, 1800) if i > 0 else None
         stop_status = 0
         if estimate_time is None:
-            stop_status = 1  # 尚未起飛
+            stop_status = 1  # 未發車
             
         mock_data.append({
             'StopName': {'Zh_tw': stop},
@@ -82,7 +82,7 @@ def get_mock_bus_data(route_id):
         estimate_time = random.randint(30, 1800) if i > 0 else None
         stop_status = 0
         if estimate_time is None:
-            stop_status = 1  # 尚未起飛
+            stop_status = 1  # 未發車
             
         mock_data.append({
             'StopName': {'Zh_tw': stop},
