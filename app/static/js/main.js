@@ -296,17 +296,32 @@ function setupSearchSuggestions() {
     const suggestions = document.getElementById('search-suggestions');
     if (!input || !suggestions) return;
     
-    const mockRoutes = [
-        { id: '300', desc: '300路：台中車站 - 靜宜大學 (優化公車專用道)' },
-        { id: '301', desc: '301路: 新民高中 - 中興大學' },
-        { id: '302', desc: '302路: 台中航空站 - 台中公園' },
-        { id: '303', desc: '303路: 港區藝術中心 - 新民高中' },
-        { id: '304', desc: '304路: 港區藝術中心 - 新民高中 (經五權路)' },
-        { id: '305', desc: '305路: 大甲 - 鹿寮 - 台中車站' }
-    ];
+    let allRoutes = [];
+    
+    // 非同步載入所有公車路線
+    fetch('/bus/api/routes')
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to fetch routes');
+            return response.json();
+        })
+        .then(data => {
+            allRoutes = data;
+        })
+        .catch(error => {
+            console.error('Error loading bus routes:', error);
+            // 發生錯誤時的 fallback 預設熱門路線
+            allRoutes = [
+                { id: '300', desc: '300路：台中車站 - 靜宜大學 (優化公車專用道)' },
+                { id: '301', desc: '301路: 新民高中 - 中興大學' },
+                { id: '302', desc: '302路: 台中航空站 - 台中公園' },
+                { id: '303', desc: '303路: 港區藝術中心 - 新民高中' },
+                { id: '304', desc: '304路: 港區藝術中心 - 新民高中 (經五權路)' },
+                { id: '305', desc: '305路: 大甲 - 鹿寮 - 台中車站' }
+            ];
+        });
     
     input.addEventListener('input', (e) => {
-        const val = e.target.value.trim();
+        const val = e.target.value.trim().toLowerCase();
         suggestions.innerHTML = '';
         
         if (!val) {
@@ -314,10 +329,16 @@ function setupSearchSuggestions() {
             return;
         }
         
-        const filtered = mockRoutes.filter(r => r.id.includes(val) || r.desc.includes(val));
+        // 模糊搜尋路線編號或起迄點描述
+        const filtered = allRoutes.filter(r => 
+            r.id.toLowerCase().includes(val) || 
+            r.desc.toLowerCase().includes(val)
+        );
         
         if (filtered.length > 0) {
-            filtered.forEach(route => {
+            // 限制最多顯示 10 筆建議，避免畫面太長
+            const maxSuggestions = filtered.slice(0, 10);
+            maxSuggestions.forEach(route => {
                 const item = document.createElement('div');
                 item.className = 'suggestion-item text-white';
                 item.textContent = route.desc;
