@@ -1,6 +1,9 @@
 from flask import Blueprint, render_template, jsonify, current_app
 import requests
 import random
+import os
+import json
+import time
 from ..models.report import Report
 from app.utils.tdx import TDXClient
 
@@ -10,12 +13,25 @@ bus_bp = Blueprint('bus', __name__)
 
 def get_tdx_token():
     """
-    取得 TDX API 的 Access Token
+    取得 TDX API 的 Access Token (具備快取機制，與其他組件共用 token_cache.json)
     """
     client_id = current_app.config.get('TDX_CLIENT_ID')
     client_secret = current_app.config.get('TDX_CLIENT_SECRET')
     if not client_id or not client_secret:
         return None
+    
+    # 讀取專案根目錄的快取
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cache_file = os.path.join(base_dir, 'token_cache.json')
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r') as f:
+                cache = json.load(f)
+                if time.time() - cache.get('timestamp', 0) < 20 * 3600:
+                    return cache.get('token')
+        except Exception:
+            pass
+
     try:
         url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
         headers = {'content-type': 'application/x-www-form-urlencoded'}
@@ -26,7 +42,13 @@ def get_tdx_token():
         }
         res = requests.post(url, headers=headers, data=data, timeout=5)
         if res.status_code == 200:
-            return res.json().get('access_token')
+            token = res.json().get('access_token')
+            try:
+                with open(cache_file, 'w') as f:
+                    json.dump({'token': token, 'timestamp': time.time()}, f)
+            except Exception:
+                pass
+            return token
     except Exception as e:
         print(f"Error getting TDX token: {e}")
     return None
@@ -39,7 +61,7 @@ def fetch_tdx_bus_data(route_id, token):
         return None
     try:
         # 取得台中市指定路線的預估到站時間
-        url = f"https://tdx.transportdata.tw/api/basic/v2/Bus/EstimatedOfArrival/City/Taichung/{route_id}?$format=JSON"
+        url = f"https://tdx.transportdata.tw/api/basic/v2/Bus/EstimatedTimeOfArrival/City/Taichung/{route_id}?$format=JSON"
         headers = {'Authorization': f'Bearer {token}'}
         res = requests.get(url, headers=headers, timeout=5)
         if res.status_code == 200:
@@ -144,15 +166,38 @@ def bus_status(route_id):
     """
     return render_template('bus_status.html', route_id=route_id)
 
+def load_local_stops_of_route(route_id):
+    """
+    從本地的 stops.json 中讀取指定路線的站牌順序
+    """
+    try:
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        stops_file = os.path.join(base_dir, 'static', 'data', 'stops.json')
+        if os.path.exists(stops_file):
+            with open(stops_file, 'r', encoding='utf-8') as f:
+                all_stops = json.load(f)
+                # 篩選 RouteID 吻合的項目
+                matched = [item for item in all_stops if str(item.get('RouteID')) == str(route_id)]
+                if matched:
+                    return matched
+    except Exception as e:
+        print(f"Error loading local stops.json: {e}")
+    return None
+
 @bus_bp.route('/api/status/<route_id>', methods=['GET'])
 def api_bus_status(route_id):
     """
     取得即時動態 API
     結合 TDX API 預估到站時間與 SQLite 中司機的回報資料。
     """
-    # 1. 取得 TDX 資料 (若無金鑰則使用模擬資料)
+    # 1. 取得 TDX 資料
     token = get_tdx_token()
     stops_data = fetch_tdx_stops_of_route(route_id, token)
+    
+    # 如果線上取得失敗（如被限流 429），改從本地已下載的 stops.json 讀取正確站牌
+    if not stops_data:
+        stops_data = load_local_stops_of_route(route_id)
+        
     eta_data = fetch_tdx_bus_data(route_id, token)
     
     if stops_data:

@@ -2,6 +2,7 @@ import os
 import json
 import requests
 import random
+import time
 from config import Config
 
 class TDXClient:
@@ -14,6 +15,19 @@ class TDXClient:
         if not self.client_id or not self.client_secret:
             return None
         
+        # 讀取專案根目錄的快取
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        cache_file = os.path.join(base_dir, 'token_cache.json')
+        if os.path.exists(cache_file):
+            try:
+                with open(cache_file, 'r') as f:
+                    cache = json.load(f)
+                    if time.time() - cache.get('timestamp', 0) < 20 * 3600:
+                        self.token = cache.get('token')
+                        return self.token
+            except Exception:
+                pass
+
         url = "https://tdx.transportdata.tw/auth/realms/TDXConnect/protocol/openid-connect/token"
         headers = {"content-type": "application/x-www-form-urlencoded"}
         data = {
@@ -25,6 +39,11 @@ class TDXClient:
             res = requests.post(url, headers=headers, data=data, timeout=5)
             if res.status_code == 200:
                 self.token = res.json().get("access_token")
+                try:
+                    with open(cache_file, 'w') as f:
+                        json.dump({'token': self.token, 'timestamp': time.time()}, f)
+                except Exception:
+                    pass
                 return self.token
         except Exception:
             pass

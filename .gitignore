@@ -6,3 +6,5 @@ instance/
 .env
 .DS_Store
 .gemini/
+token_cache.json
+database/*.db
