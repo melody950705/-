@@ -228,26 +228,48 @@ async function fetchBusStatus(routeId, favoritesList = []) {
                         nodeClass = 'passed'; // Already passed or further down
                     }
                     
+                    // Check and trigger arrival alerts (<= 180 seconds, meaning 3 minutes)
+                    const alerts = getArrivalAlerts();
+                    const alertIndex = alerts.findIndex(a => a.route_id === routeId && a.stop_name === stopName && parseInt(a.direction) === parseInt(stop.Direction));
+                    if (alertIndex > -1 && seconds !== null && seconds <= 180 && seconds > 0) {
+                        // 1. Play chime
+                        playAlertSound();
+                        // 2. Alert user
+                        showToast(`📢 到站特報：您預約的公車 (${routeId}路) 即將到達【${stopName}】！預估還有 ${Math.ceil(seconds / 60)} 分鐘。`, 'warning');
+                        // 3. Remove alert from local storage
+                        alerts.splice(alertIndex, 1);
+                        saveArrivalAlerts(alerts);
+                    }
+                    
                     // Check if stop is in favorites list
                     const isSaved = favoritesList.some(f => f.route_id === routeId && f.stop_name === stopName && parseInt(f.direction) === parseInt(stop.Direction));
                     
+                    // Check if stop is in alert list for current UI class state
+                    const isAlertActive = getArrivalAlerts().some(a => a.route_id === routeId && a.stop_name === stopName && parseInt(a.direction) === parseInt(stop.Direction));
+                    
                     timelineHtml += `
-                        <div class="timeline-item d-flex justify-content-between align-items-center">
-                            <div class="timeline-node ${nodeClass}"></div>
-                            <div class="d-flex align-items-center gap-3">
-                                <span class="fs-5 fw-bold text-white">${stopName}</span>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                ${formatEstimateTime(seconds, status)}
-                                
-                                <button class="btn btn-sm ${isSaved ? 'btn-gradient favorited' : 'btn-glass'}" 
-                                        onclick="toggleFavorite('${routeId}', '${stopName}', '${stop.Direction}', this)">
-                                    <i class="${isSaved ? 'fas fa-bookmark text-warning' : 'far fa-bookmark'}"></i> 
-                                    ${isSaved ? '已收藏' : '收藏此站'}
-                                </button>
-                            </div>
-                        </div>
-                    `;
+                         <div class="timeline-item d-flex justify-content-between align-items-center">
+                             <div class="timeline-node ${nodeClass}"></div>
+                             <div class="d-flex align-items-center gap-3">
+                                 <span class="fs-5 fw-bold text-white">${stopName}</span>
+                             </div>
+                             <div class="d-flex align-items-center gap-2">
+                                 ${formatEstimateTime(seconds, status)}
+                                 
+                                 <button class="btn btn-sm ${isAlertActive ? 'btn-glass alert-active' : 'btn-glass'}" 
+                                         onclick="toggleArrivalAlert('${routeId}', '${stopName}', '${stop.Direction}', this)">
+                                     <i class="${isAlertActive ? 'fas fa-bell' : 'far fa-bell'}"></i> 
+                                     ${isAlertActive ? '取消提醒' : '預約提醒'}
+                                 </button>
+                                 
+                                 <button class="btn btn-sm ${isSaved ? 'btn-gradient favorited' : 'btn-glass'}" 
+                                         onclick="toggleFavorite('${routeId}', '${stopName}', '${stop.Direction}', this)">
+                                     <i class="${isSaved ? 'fas fa-bookmark text-warning' : 'far fa-bookmark'}"></i> 
+                                     ${isSaved ? '已收藏' : '收藏此站'}
+                                 </button>
+                             </div>
+                         </div>
+                     `;
                 });
             } else {
                 timelineHtml += `
@@ -391,7 +413,133 @@ function fetchDriverLocation() {
     }
 }
 
+// --- Arrival Alert System (Web Audio API & localStorage) ---
+
+// Get active alerts from localStorage
+function getArrivalAlerts() {
+    try {
+        return JSON.parse(localStorage.getItem('arrivalAlerts')) || [];
+    } catch (e) {
+        return [];
+    }
+}
+
+// Save active alerts to localStorage
+function saveArrivalAlerts(alerts) {
+    localStorage.setItem('arrivalAlerts', JSON.stringify(alerts));
+}
+
+// Toggle arrival alert for a specific stop
+function toggleArrivalAlert(routeId, stopName, direction, btn) {
+    let alerts = getArrivalAlerts();
+    const dirVal = parseInt(direction);
+    
+    // Check if already registered
+    const index = alerts.findIndex(a => a.route_id === routeId && a.stop_name === stopName && parseInt(a.direction) === dirVal);
+    
+    // Initialize/Unlock Web Audio Context immediately on click to prevent browser autoplay block
+    unlockAudioContext();
+
+    if (index > -1) {
+        // Remove alert
+        alerts.splice(index, 1);
+        saveArrivalAlerts(alerts);
+        
+        btn.classList.remove('alert-active');
+        btn.innerHTML = '<i class="far fa-bell me-1"></i>預約提醒';
+        showToast(`已取消【${stopName}】的到站提醒。`, 'info');
+    } else {
+        // Add alert
+        alerts.push({
+            route_id: routeId,
+            direction: dirVal,
+            stop_name: stopName
+        });
+        saveArrivalAlerts(alerts);
+        
+        btn.classList.add('alert-active');
+        btn.innerHTML = '<i class="fas fa-bell me-1"></i>取消提醒';
+        showToast(`已成功預約【${stopName}】到站前 3 分鐘提醒！`, 'success');
+        
+        // Play a quick test tick so the user knows sound is working and unlocked
+        playShortTick();
+    }
+}
+
+// Helper to unlock Web Audio API Context
+let audioCtx = null;
+function unlockAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+// Play a very quick soft feedback tick sound
+function playShortTick() {
+    try {
+        unlockAudioContext();
+        if (!audioCtx) return;
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime); // 1000Hz
+        
+        gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+        
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + 0.05);
+    } catch (e) {
+        console.warn('Sound feedback error:', e);
+    }
+}
+
+// Synthesize a beautiful "Ding-Dong" chime using Web Audio API
+function playAlertSound() {
+    try {
+        unlockAudioContext();
+        if (!audioCtx) return;
+        
+        const now = audioCtx.currentTime;
+        
+        // Play Ding (High pitch)
+        playTone(880, now, 0.4, 0.15); // A5 note
+        // Play Dong (Lower pitch, offset by 0.15s)
+        playTone(659.25, now + 0.15, 0.6, 0.15); // E5 note
+    } catch (e) {
+        console.warn('Alert sound play error:', e);
+    }
+}
+
+// Helper to play a single synth tone with envelope
+function playTone(frequency, startTime, duration, volume) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.type = 'triangle'; // Soft, bell-like timbre
+    osc.frequency.setValueAtTime(frequency, startTime);
+    
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.linearRampToValueAtTime(volume, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+}
+
 // DOM Content Loaded Handler
+
 document.addEventListener('DOMContentLoaded', () => {
     setupSearchSuggestions();
     

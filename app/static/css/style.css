@@ -437,3 +437,37 @@ footer {
     -webkit-backdrop-filter: blur(16px);
     padding: 2rem 0;
 }
+
+/* Arrival Alert Button and Animation */
+.btn-glass.alert-active {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+    border-color: rgba(236, 72, 153, 0.5);
+    color: #f472b6;
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
+}
+
+.btn-glass.alert-active:hover {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.4) 0%, rgba(168, 85, 247, 0.4) 100%);
+    border-color: rgba(236, 72, 153, 0.7);
+    color: #fff;
+}
+
+.alert-active i {
+    animation: bellShake 1.5s infinite ease-in-out;
+    display: inline-block;
+}
+
+@keyframes bellShake {
+    0% { transform: rotate(0); }
+    10% { transform: rotate(15deg); }
+    20% { transform: rotate(-10deg); }
+    30% { transform: rotate(10deg); }
+    40% { transform: rotate(-8deg); }
+    50% { transform: rotate(6deg); }
+    60% { transform: rotate(-4deg); }
+    70% { transform: rotate(2deg); }
+    80% { transform: rotate(-1deg); }
+    90% { transform: rotate(1deg); }
+    100% { transform: rotate(0); }
+}
+
