@@ -538,7 +538,169 @@ function playTone(frequency, startTime, duration, volume) {
     osc.stop(startTime + duration);
 }
 
+// --- Geolocation Nearby Stops Search ---
+
+async function findNearbyStops(btn) {
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>定位中...';
+    
+    const grid = document.getElementById('nearby-stops-grid');
+    if (grid) {
+        grid.innerHTML = `
+            <div class="col-12 text-center py-4 text-muted">
+                <i class="fas fa-spinner fa-spin fa-2x mb-3 text-gradient"></i>
+                <p>正在透過 GPS 取得您的目前位置...</p>
+            </div>
+        `;
+    }
+    
+    const options = { enableHighAccuracy: true, timeout: 6000 };
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                await fetchNearbyStopsApi(lat, lng, btn, originalHtml);
+            },
+            async (error) => {
+                console.warn('GPS location error:', error);
+                let subtext = '無法取得定位座標。請確認已在瀏覽器設定中允許此網站存取您的位置。';
+                if (error.code === error.TIMEOUT) {
+                    subtext = '定位超時，請重新整理網頁並再試一次，或確認裝置 GPS 訊號良好。';
+                }
+                showToast('無法取得定位，未開啟定位或不在服務區。', 'warning');
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                grid.innerHTML = `
+                    <div class="col-12 text-center py-5 text-muted">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                        <p class="fs-5 fw-bold text-white">不在服務區或未開啟定位</p>
+                        <p class="small text-muted mt-2">${subtext}</p>
+                    </div>
+                `;
+            },
+            options
+        );
+    } else {
+        showToast('您的瀏覽器不支援定位。', 'danger');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        grid.innerHTML = `
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                <p class="fs-5 fw-bold text-white">不在服務區或未開啟定位</p>
+                <p class="small text-muted mt-2">您的瀏覽器不支援地理位置定位功能。</p>
+            </div>
+        `;
+    }
+}
+
+async function fetchNearbyStopsApi(lat, lng, btn, originalHtml) {
+    const grid = document.getElementById('nearby-stops-grid');
+    try {
+        const response = await fetch(`/api/stops/nearby?lat=${lat}&lng=${lng}`);
+        if (!response.ok) throw new Error('API response failed');
+        
+        const data = await response.json();
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        
+        if (data.status === 'success' && data.stops && data.stops.length > 0) {
+            renderNearbyStops(data, grid);
+        } else {
+            // API returned out_of_service: True (Successfully geolocated but not in Taichung)
+            let subtext = '周圍 1 公里內查無公車站牌。';
+            if (data.lat && data.lng) {
+                subtext = `已定位成功（緯度: ${data.lat.toFixed(4)}, 經度: ${data.lng.toFixed(4)}），但此座標不在台中公車 1 公里的服務範圍內。`;
+            }
+            grid.innerHTML = `
+                <div class="col-12 text-center py-5 text-muted">
+                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                    <p class="fs-5 fw-bold text-white">不在服務區或未開啟定位</p>
+                    <p class="small text-muted mt-2">${subtext}</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        console.error('Error fetching nearby stops:', e);
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+        showToast('取得附近站牌失敗，請稍後再試。', 'danger');
+        grid.innerHTML = `
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                <p class="fs-5 fw-bold text-white">不在服務區或未開啟定位</p>
+                <p class="small text-muted mt-2">連線逾時或伺服器處理錯誤。</p>
+            </div>
+        `;
+    }
+}
+
+function renderNearbyStops(data, grid) {
+    let html = '';
+    
+    // If location is simulated, show a warning badge or banner
+    if (data.is_mocked_location) {
+        html += `
+            <div class="col-12 mb-3">
+                <div class="alert alert-warning bg-warning bg-opacity-10 border-warning border-opacity-20 text-warning d-flex align-items-center gap-2" role="alert" style="border-radius: var(--border-radius-md);">
+                    <i class="fas fa-info-circle"></i>
+                    <span>偵測到您的目前位置不在台中或無法取得 GPS 定位，已自動切換至<strong>台中車站</strong>為中心搜尋。</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    data.stops.forEach(stop => {
+        // Generate route badges
+        let routeBadges = '';
+        if (stop.routes && stop.routes.length > 0) {
+            stop.routes.forEach(route => {
+                // Remove '路' or keep it clean
+                const routeIdClean = route.replace('路', '');
+                routeBadges += `
+                    <span class="badge bg-indigo bg-opacity-20 text-gradient fs-6 px-2 py-1 border border-primary border-opacity-10 cursor-pointer me-1 mb-1" 
+                          onclick="window.location.href='/bus/${routeIdClean}'" 
+                          title="查看 ${route} 即時動態" 
+                          style="transition: all 0.2s; display: inline-block;">
+                        <i class="fas fa-bus-alt text-indigo me-1"></i>${route}
+                    </span>
+                `;
+            });
+        } else {
+            routeBadges = '<span class="text-muted small">暫無途經路線</span>';
+        }
+        
+        html += `
+            <div class="col-md-4 mb-4">
+                <div class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h4 class="text-white fw-bold mb-0">${stop.stop_name}</h4>
+                            <span class="badge bg-success bg-opacity-20 text-success fs-6 px-3 py-1 border border-success border-opacity-20 d-flex align-items-center gap-1">
+                                <i class="fas fa-location-arrow"></i>相距 ${stop.distance}m
+                            </span>
+                        </div>
+                        <p class="text-muted mb-3 small"><i class="fas fa-map-marked-alt me-1"></i>台中市智慧站牌</p>
+                    </div>
+                    <div>
+                        <div class="text-white small fw-bold mb-2">途經公車路線：</div>
+                        <div class="d-flex flex-wrap">
+                            ${routeBadges}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    grid.innerHTML = html;
+}
+
 // DOM Content Loaded Handler
+
 
 document.addEventListener('DOMContentLoaded', () => {
     setupSearchSuggestions();
