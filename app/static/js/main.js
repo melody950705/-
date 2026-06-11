@@ -120,7 +120,7 @@ function initBusStatusPolling(routeId, favoritesList = []) {
 
 // Convert seconds into human-readable text
 function formatEstimateTime(seconds, status) {
-    if (status === 1) return '<span class="status-badge inactive">尚未起飛</span>';
+    if (status === 1) return '<span class="status-badge inactive">尚未發車</span>';
     if (status === 2) return '<span class="status-badge inactive">交管中</span>';
     if (status === 3) return '<span class="status-badge inactive">末班車已過</span>';
     if (status === 4) return '<span class="status-badge inactive">今日停駛</span>';
