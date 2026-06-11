@@ -156,12 +156,13 @@ class TaichungBusTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         
         # API bus status
-        res = self.client.get('/api/bus/300')
+        res = self.client.get('/bus/api/status/300')
         self.assertEqual(res.status_code, 200)
         json_data = res.get_json()
         self.assertEqual(json_data["status"], "success")
         self.assertEqual(json_data["route_id"], "300")
         self.assertIn("stops", json_data)
+
         
         # Driver Login page
         res = self.client.get('/driver/login')

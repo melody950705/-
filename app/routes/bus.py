@@ -200,9 +200,10 @@ def api_bus_status(route_id):
         
     eta_data = fetch_tdx_bus_data(route_id, token)
     
-    if stops_data:
+    if stops_data and eta_data:
         # 建立 ETA 查表對照 Dict
         eta_dict = {}
+
         if eta_data:
             for item in eta_data:
                 stop_uid = item.get('StopUID')
@@ -266,10 +267,12 @@ def api_bus_status(route_id):
         
     # 合併回傳
     return jsonify({
+        'status': 'success',
         'route_id': route_id,
         'stops': bus_stops,
         'reports': reports
     })
+
 
 @bus_bp.route('/api/routes', methods=['GET'])
 def get_routes():

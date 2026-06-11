@@ -22,27 +22,33 @@ def route_plan():
     results = None
     
     if start and end:
-        # 這裡未來可整合 TDX 轉乘規劃 API，目前回傳模擬規劃結果
-        results = [
-            {
-                'summary': '搭乘 300 路公車（預估 25 分鐘）',
-                'duration': '25 mins',
-                'steps': [
-                    f'從 {start} 步行至最近捷運站/公車站牌',
-                    '搭乘 300 路公車（方向：台中車站 -> 靜宜大學）',
-                    f'於目的地站牌下車，步行至 {end}'
-                ]
-            },
-            {
-                'summary': '搭乘 301 路公車（預估 30 分鐘，步行較少）',
-                'duration': '30 mins',
-                'steps': [
-                    f'從 {start} 步行至公車站牌',
-                    '搭乘 301 路公車',
-                    f'到達目的地 {end}'
-                ]
-            }
-        ]
+        from app.utils.tdx import TDXClient
+        tdx = TDXClient()
+        raw_plans = tdx.get_route_plan(start, end)
+        
+        results = []
+        for plan in raw_plans:
+            steps = []
+            for leg in plan.get('legs', []):
+                leg_type = leg.get('type')
+                leg_name = leg.get('name', '')
+                leg_from = leg.get('from', '')
+                leg_to = leg.get('to', '')
+                leg_dur = leg.get('duration', 0)
+                leg_note = leg.get('note', '')
+                
+                note_str = f"（{leg_note}）" if leg_note else ""
+                
+                if leg_type == 'walk':
+                    steps.append(f"從 {leg_from} 步行至 {leg_to}，預估 {leg_dur} 分鐘{note_str}")
+                else:
+                    steps.append(f"搭乘 {leg_name}（從 {leg_from} 到 {leg_to}），預估 {leg_dur} 分鐘{note_str}")
+            
+            results.append({
+                'summary': plan.get('title'),
+                'duration': f"{plan.get('total_time')} 分鐘",
+                'steps': steps
+            })
         
     return render_template('route_plan.html', start=start, end=end, results=results)
 
