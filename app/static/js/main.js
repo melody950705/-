@@ -502,7 +502,7 @@ function playShortTick() {
     }
 }
 
-// Synthesize a beautiful "Ding-Dong" chime using Web Audio API
+// Synthesize a beautiful "Ding-Dong" chime using Web Audio API (Repeated for 5 seconds)
 function playAlertSound() {
     try {
         unlockAudioContext();
@@ -510,10 +510,14 @@ function playAlertSound() {
         
         const now = audioCtx.currentTime;
         
-        // Play Ding (High pitch)
-        playTone(880, now, 0.4, 0.15); // A5 note
-        // Play Dong (Lower pitch, offset by 0.15s)
-        playTone(659.25, now + 0.15, 0.6, 0.15); // E5 note
+        // Loop 5 times (each chime spaced 1 second apart) to last at least 5 seconds
+        for (let i = 0; i < 5; i++) {
+            const offset = i * 1.0;
+            // Play Ding (High pitch)
+            playTone(880, now + offset, 0.4, 0.15); // A5 note
+            // Play Dong (Lower pitch, offset by 0.15s)
+            playTone(659.25, now + offset + 0.15, 0.6, 0.15); // E5 note
+        }
     } catch (e) {
         console.warn('Alert sound play error:', e);
     }
